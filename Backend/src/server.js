@@ -1,22 +1,28 @@
-import dotenv from 'dotenv';
-import express from 'express';
-import { connectDB } from './utils/db.js';
+import express from "express";
+import cors from "cors";
+import dotenv from "dotenv";
+import {connectDB} from "./config/db.js";
+import { initTelegramListener } from "./services/telegramListener.js";
+
 dotenv.config();
 
 const app = express();
-
-app.get('/', (req, res) => {
-  console.log('ui');
-  res.send('OK');
-});
+app.use(cors());
+app.use(express.json());
 
 const PORT = process.env.PORT || 5000;
 
-await connectDB();
-console.log("database connected");
+const startApp = async () => {
+  // 1. Connect to Database
+  await connectDB();
 
-app.listen(PORT, () => {
+  // 2. Start Express HTTP Server
+  app.listen(PORT, () => {
+    console.log(`🚀 Server running on http://localhost:${PORT}`);
+  });
 
-  console.log(`server running on port ${PORT}`);
-});
+  // 3. Start GramJS Telegram Listener
+  await initTelegramListener();
+};
 
+startApp();
