@@ -3,6 +3,7 @@ import { StringSession } from "telegram/sessions/index.js";
 import { NewMessage } from "telegram/events/index.js";
 import { Job } from "../models/Job.js";
 import { generateRawHash } from "../utils/hash.js";
+import { parseRawJobText } from "./parser.js";
 import dotenv from "dotenv";
 
 dotenv.config();
@@ -20,7 +21,9 @@ const MONITORED_CHANNELS = [
 
 // Helper to backfill past 7 days of messages
 const backfillPast7Days = async (client) => {
-  const sevenDaysAgoSeconds = Math.floor((Date.now() - 7 * 24 * 60 * 60 * 1000) / 1000);
+  const sevenDaysAgoSeconds = Math.floor(
+    (Date.now() - 7 * 24 * 60 * 60 * 1000) / 1000,
+  );
   console.log("⏳ Syncing job posts from the last 7 days...");
 
   let totalImported = 0;
@@ -30,7 +33,9 @@ const backfillPast7Days = async (client) => {
       console.log(`📥 Fetching recent history from @${channelUsername}...`);
 
       // Fetch up to 100 recent messages from the channel
-      const messages = await client.getMessages(channelUsername, { limit: 100 });
+      const messages = await client.getMessages(channelUsername, {
+        limit: 100,
+      });
 
       for (const msg of messages) {
         // Skip non-text or messages older than 7 days
@@ -44,10 +49,13 @@ const backfillPast7Days = async (client) => {
         // Check for duplicate post
         const existingJob = await Job.findOne({ rawHash });
         if (!existingJob) {
+          // Parse raw text into structured fields
+          const parsedData = parseRawJobText(rawText);
+
           await Job.create({
             rawHash,
             rawText,
-            title: "Channel Vacancy", // Temporary placeholder before Sprint 2 parser
+            ...parsedData,
             sourceName: `@${channelUsername}`,
             createdAt: new Date(msg.date * 1000), // Retain original post date
           });
@@ -55,11 +63,16 @@ const backfillPast7Days = async (client) => {
         }
       }
     } catch (err) {
-      console.error(`⚠️ Could not fetch history for @${channelUsername}:`, err.message);
+      console.error(
+        `⚠️ Could not fetch history for @${channelUsername}:`,
+        err.message,
+      );
     }
   }
 
-  console.log(`✅ Backfill complete! Loaded ${totalImported} new jobs from the past 7 days.`);
+  console.log(
+    `✅ Backfill complete! Loaded and parsed ${totalImported} new jobs from the past 7 days.`,
+  );
 };
 
 export const initTelegramListener = async () => {
@@ -81,29 +94,37 @@ export const initTelegramListener = async () => {
   await backfillPast7Days(client);
 
   // Step 2: Listen for live real-time posts going forward
-  client.addEventHandler(async (event) => {
-    const message = event.message;
-    if (!message || !message.text) return;
+  client.addEventHandler(
+    async (event) => {
+      const message = event.message;
+      if (!message || !message.text) return;
 
-    const rawText = message.text;
-    const rawHash = generateRawHash(rawText);
+      const rawText = message.text;
+      const rawHash = generateRawHash(rawText);
 
-    try {
-      const existingJob = await Job.findOne({ rawHash });
-      if (existingJob) return;
+      try {
+        const existingJob = await Job.findOne({ rawHash });
+        if (existingJob) return;
 
-      const newJob = await Job.create({
-        rawHash,
-        rawText,
-        title: "Channel Vacancy",
-        sourceName: "Telegram Live Stream",
-      });
+        // Parse raw live post
+        const parsedData = parseRawJobText(rawText);
 
-      console.log(`📩 New Live Job Caught & Saved! ID: ${newJob._id}`);
-    } catch (err) {
-      console.error("❌ Live Stream Save Error:", err.message);
-    }
-  }, new NewMessage({ chats: MONITORED_CHANNELS }));
+        const newJob = await Job.create({
+          rawHash,
+          rawText,
+          ...parsedData,
+          sourceName: "Telegram Live Stream",
+        });
 
-  console.log(`🎧 Live listener actively monitoring: ${MONITORED_CHANNELS.join(", ")}`);
+        console.log(`📩 New Live Job Parsed & Saved! Title: "${newJob.title}" | ID: ${newJob._id}`);
+      } catch (err) {
+        console.error("❌ Live Stream Save Error:", err.message);
+      }
+    },
+    new NewMessage({ chats: MONITORED_CHANNELS }),
+  );
+
+  console.log(
+    `🎧 Live listener actively monitoring: ${MONITORED_CHANNELS.join(", ")}`,
+  );
 };
