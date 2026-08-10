@@ -41,7 +41,7 @@ export default function JobFeed() {
         setTotalJobs(res.count);
         setError(null);
       } catch (err) {
-        setError("Failed to fetch jobs. Is your backend server running?");
+        setError("Failed to fetch jobs. Is your backend server running?",err);
       } finally {
         setLoading(false);
       }
