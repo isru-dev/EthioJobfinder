@@ -2,45 +2,33 @@ import { Job } from "../models/Job.js";
 
 // @desc    Get all jobs with full-text search, filter, and pagination
 // @route   GET /api/v1/jobs
+// Inside src/controllers/jobController.js
 export const getJobs = async (req, res) => {
   try {
     const page = parseInt(req.query.page, 10) || 1;
     const limit = parseInt(req.query.limit, 10) || 10;
     const skip = (page - 1) * limit;
 
-    const { search, category, source } = req.query;
+    const { search, category, source, days } = req.query;
 
-    // Build dynamic query filter
     let query = {};
 
-    // 1. Text Search across title, category, tags, rawText
-    if (search) {
-      query.$text = { $search: search };
-    }
+    // Filter by date range (default to last 7 days if not specified)
+    const daysLimit = parseInt(days, 10) || 7;
+    const dateBoundary = new Date(Date.now() - daysLimit * 24 * 60 * 60 * 1000);
+    query.createdAt = { $gte: dateBoundary };
 
-    // 2. Filter by Category if provided
-    if (category) {
-      query.category = { $regex: category, $options: "i" };
-    }
+    // Search & additional filters
+    if (search) query.$text = { $search: search };
+    if (category) query.category = { $regex: category, $options: "i" };
+    if (source) query.sourceType = source;
 
-    // 3. Filter by Source (telegram vs web)
-    if (source) {
-      query.sourceType = source;
-    }
+    // Execute query sorted by newest
+    const jobs = await Job.find(query)
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(limit);
 
-    // Execute query with pagination
-    let jobsQuery = Job.find(query);
-
-    // Sort by text relevance score if search is present, else newest first
-    if (search) {
-      jobsQuery = jobsQuery
-        .select({ score: { $meta: "textScore" } })
-        .sort({ score: { $meta: "textScore" } });
-    } else {
-      jobsQuery = jobsQuery.sort({ createdAt: -1 });
-    }
-
-    const jobs = await jobsQuery.skip(skip).limit(limit);
     const totalJobs = await Job.countDocuments(query);
 
     res.status(200).json({
@@ -51,11 +39,7 @@ export const getJobs = async (req, res) => {
       data: jobs,
     });
   } catch (error) {
-    res.status(500).json({
-      success: false,
-      message: "Server Error",
-      error: error.message,
-    });
+    res.status(500).json({ success: false, error: error.message });
   }
 };
 

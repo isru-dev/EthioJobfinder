@@ -13,10 +13,54 @@ const sessionString = process.env.TELEGRAM_SESSION_STRING;
 
 const MONITORED_CHANNELS = [
   "effoyjobs",
-  "jobs_in_ethio",
-  "hahujobs_bot",
   "freelance_ethio",
+  "hahujobsforfreshgraduates",
+  "jobs_in_ethio",
 ];
+
+// Helper to backfill past 7 days of messages
+const backfillPast7Days = async (client) => {
+  const sevenDaysAgoSeconds = Math.floor((Date.now() - 7 * 24 * 60 * 60 * 1000) / 1000);
+  console.log("⏳ Syncing job posts from the last 7 days...");
+
+  let totalImported = 0;
+
+  for (const channelUsername of MONITORED_CHANNELS) {
+    try {
+      console.log(`📥 Fetching recent history from @${channelUsername}...`);
+
+      // Fetch up to 100 recent messages from the channel
+      const messages = await client.getMessages(channelUsername, { limit: 100 });
+
+      for (const msg of messages) {
+        // Skip non-text or messages older than 7 days
+        if (!msg || !msg.text || msg.date < sevenDaysAgoSeconds) continue;
+
+        const rawText = msg.text;
+        const rawHash = generateRawHash(rawText);
+
+        if (!rawHash) continue;
+
+        // Check for duplicate post
+        const existingJob = await Job.findOne({ rawHash });
+        if (!existingJob) {
+          await Job.create({
+            rawHash,
+            rawText,
+            title: "Channel Vacancy", // Temporary placeholder before Sprint 2 parser
+            sourceName: `@${channelUsername}`,
+            createdAt: new Date(msg.date * 1000), // Retain original post date
+          });
+          totalImported++;
+        }
+      }
+    } catch (err) {
+      console.error(`⚠️ Could not fetch history for @${channelUsername}:`, err.message);
+    }
+  }
+
+  console.log(`✅ Backfill complete! Loaded ${totalImported} new jobs from the past 7 days.`);
+};
 
 export const initTelegramListener = async () => {
   if (!sessionString) {
@@ -29,9 +73,14 @@ export const initTelegramListener = async () => {
     connectionRetries: 5,
   });
 
+  console.log("🔄 Connecting GramJS Client...");
   await client.connect();
-  console.log("⚡ GramJS Listener Active!");
+  console.log("⚡ Connected to Telegram MTProto!");
 
+  // Step 1: Run 7-day backfill on startup
+  await backfillPast7Days(client);
+
+  // Step 2: Listen for live real-time posts going forward
   client.addEventHandler(async (event) => {
     const message = event.message;
     if (!message || !message.text) return;
@@ -40,24 +89,21 @@ export const initTelegramListener = async () => {
     const rawHash = generateRawHash(rawText);
 
     try {
-      // 1. Check if job post already exists in DB
       const existingJob = await Job.findOne({ rawHash });
-      if (existingJob) {
-        console.log("⚠️ Duplicate job post detected. Skipping save.");
-        return;
-      }
+      if (existingJob) return;
 
-      // 2. Save new job to MongoDB
       const newJob = await Job.create({
         rawHash,
         rawText,
-        title: "New Channel Post", // Temporary placeholder before parsing
-        sourceName: "Telegram Channel",
+        title: "Channel Vacancy",
+        sourceName: "Telegram Live Stream",
       });
 
-      console.log(`✅ Saved new job to MongoDB! ID: ${newJob._id}`);
+      console.log(`📩 New Live Job Caught & Saved! ID: ${newJob._id}`);
     } catch (err) {
-      console.error("❌ Error saving post to DB:", err.message);
+      console.error("❌ Live Stream Save Error:", err.message);
     }
   }, new NewMessage({ chats: MONITORED_CHANNELS }));
+
+  console.log(`🎧 Live listener actively monitoring: ${MONITORED_CHANNELS.join(", ")}`);
 };
