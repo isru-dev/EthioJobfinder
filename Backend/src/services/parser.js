@@ -1,74 +1,195 @@
+import { Groq } from "groq-sdk";
+import OpenAI from "openai";
+import { GoogleGenerativeAI } from "@google/generative-ai";
+
 // Keyword dictionary for automatic category classification
 const CATEGORY_MAP = {
   "Software / IT": [
     "developer", "software", "frontend", "backend", "fullstack", "react",
-    "node", "python", "java", "tech", "web", "ui/ux", "designer", "data"
+    "node", "python", "java", "tech", "web", "ui/ux", "designer", "data",
+    "devops", "cloud", "system", "network", "cybersecurity", "ai", "machine learning"
+  ],
+  "Video / Graphics": [
+    "video", "editor", "editing", "graphic", "graphics", "motion", "animator",
+    "animation", "photoshop", "premiere", "after effects", "illustrator",
+    "videographer", "creative", "content creator", "thumbnail", "design", "designer",
+    "ቪዲዮ", "ኤዲተር", "ግራፊክስ"
   ],
   "Finance & Accounting": [
-    "accountant", "finance", "auditor", "banking", "tax", "payroll"
+    "accountant", "finance", "auditor", "banking", "tax", "payroll", "cashier", "አካውንታንት"
   ],
   "Sales & Marketing": [
-    "marketing", "sales", "social media", "content", "manager", "business"
+    "marketing", "sales", "social media", "content", "manager", "business",
+    "copywriter", "digital marketing", "promoter", "seo"
   ],
   "Healthcare": [
-    "nurse", "doctor", "health", "clinical", "pharmacy"
-  ]
+    "nurse", "doctor", "health", "clinical", "pharmacy", "pharmacist", "lab", "medical"
+  ],
+  "General / Other": []
 };
 
+
+
+const groq = new Groq({ apiKey: process.env.GROQ_API_KEY || "" });
+
+const cerebras = process.env.CEREBRAS_API_KEY
+  ? new OpenAI({
+      apiKey: process.env.CEREBRAS_API_KEY,
+      baseURL: "https://api.cerebras.ai/v1",
+    })
+  : null;
+
+const genAI = process.env.GEMINI_API_KEY
+  ? new GoogleGenerativeAI(process.env.GEMINI_API_KEY)
+  : null;
+
+const openRouter = process.env.OPENROUTER_API_KEY
+  ? new OpenAI({
+      apiKey: process.env.OPENROUTER_API_KEY,
+      baseURL: "https://openrouter.ai/api/v1",
+    })
+  : null;
+
+const SYSTEM_PROMPT = `
+You are an expert AI recruiter specialized in extracting job listings from Ethiopian Telegram channels.
+The input text may be in English, Amharic, or both.
+
+CRITICAL INSTRUCTION:
+A single post may contain multiple job vacancies or weekly digests. 
+You MUST parse and return an array of job objects under the key "jobs".
+
+OUTPUT FORMAT (JSON ONLY):
+{
+  "jobs": [
+    {
+      "title": "Concise English job title (e.g. 'Senior Video Editor')",
+      "company": "Company name or 'Not Specified'",
+      "category": "MUST be exactly one of: ['Software / IT', 'Video / Graphics', 'Finance & Accounting', 'Sales & Marketing', 'Healthcare', 'General / Other']",
+      "tags": ["array", "of", "up", "to", "5", "English", "keywords"],
+      "contactEmail": "extracted email or null",
+      "contactPhone": "extracted phone number or null"
+    }
+  ]
+}
+
+CATEGORIZATION RULES:
+1. "Software / IT": Web/Mobile Developers, DevOps, ML/AI, Data Analysts, Cloud Engineers, System Admins, CyberSecurity, IT Support.
+2. "Video / Graphics": Video Editors (ቪዲዮ ኤዲተር), Graphic Designers, Motion Graphic Artists, Animators, UI/UX Designers, Videographers, Content Creators.
+3. "Finance & Accounting": Accountants, Auditors, Financial Analysts, Cashiers, Bankers.
+4. "Sales & Marketing": Digital Marketers, Sales Representatives, Social Media Managers, Copywriters.
+5. "Healthcare": Doctors, Nurses, Pharmacists, Lab Technicians.
+6. "General / Other": Anything else that does not fit the above categories.
+
+If the post is in Amharic, TRANSLATE title, company, category, and tags into English in the output.
+`;
+
+/**
+ * Lightweight local regex fallback if all AI APIs fail or are missing.
+ */
 export const parseRawJobText = (rawText) => {
-  if (!rawText) return {};
+  const emailMatch = rawText.match(/[\w.-]+@[\w.-]+\.\w+/);
+  const phoneMatch = rawText.match(/(?:\+251|0)\s?\d{2}\s?\d{3}\s?\d{4}|\b09\d{8}\b/);
 
-  const lines = rawText.split("\n").map(line => line.trim()).filter(Boolean);
+  return {
+    title: "Channel Vacancy",
+    company: "Not Specified",
+    category: "General / Other",
+    tags: ["Telegram", "Job"],
+    contactEmail: emailMatch ? emailMatch[0] : null,
+    contactPhone: phoneMatch ? phoneMatch[0] : null,
+  };
+};
 
-  // 1. Extract Title (Usually the first non-empty line or explicitly labeled line)
-  let title = "Uncategorized Vacancy";
-  const titleLine = lines.find(l => /^job title|^position|^role/i.test(l));
-  if (titleLine) {
-    title = titleLine.replace(/^job title:?|^position:?|^role:?/i, "").trim();
-  } else if (lines.length > 0) {
-    title = lines[0].slice(0, 80); // Fallback to first line
-  }
+/**
+ * Fast Local Pre-Filter: Returns false for non-job messages, ads, or channel announcements.
+ */
+export const isLikelyJobPost = (text) => {
+  if (!text || text.length < 40) return false;
 
-  // 2. Extract Company Name
-  let company = "Not Specified";
-  const companyLine = lines.find(l => /^company|^organization|^employer/i.test(l));
-  if (companyLine) {
-    company = companyLine.replace(/^company:?|^organization:?|^employer:?/i, "").trim();
-  }
+  const jobKeywords = [
+    // English keywords
+    "job", "vacancy", "hiring", "position", "apply", "qualification",
+    "salary", "deadline", "experience", "education", "requirements", "officer",
+    // Amharic keywords
+    "የስራ", "ማስታወቂያ", "ተወዳዳሪ", "የትምህርት", "ልምድ",
+    "ደመወዝ", "ቅጥር", "ኦፊሰር", "አመልካቾች", "የምዝገባ"
+  ];
 
-  // 3. Extract Emails
-  const emailRegex = /[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/g;
-  const emails = rawText.match(emailRegex) || [];
+  const lowerText = text.toLowerCase();
+  return jobKeywords.some((kw) => lowerText.includes(kw));
+};
 
-  // 4. Extract Ethiopian Phone Numbers (+251 or 09/07...)
-  const phoneRegex = /(?:\+251|0)(?:9|7)\d{8}/g;
-  const phones = rawText.match(phoneRegex) || [];
-
-  // 5. Categorize based on keywords
-  let category = "General / Other";
-  const lowerText = rawText.toLowerCase();
-
-  for (const [catName, keywords] of Object.entries(CATEGORY_MAP)) {
-    if (keywords.some(kw => lowerText.includes(kw))) {
-      category = catName;
-      break;
+/**
+ * Multi-Tier AI Fallback Engine
+ */
+export const parseJobWithMultiAIFallback = async (rawText) => {
+  // Tier 1: Groq
+  if (process.env.GROQ_API_KEY) {
+    try {
+      const res = await groq.chat.completions.create({
+        model: "llama-3.1-8b-instant",
+        response_format: { type: "json_object" },
+        temperature: 0.1,
+        messages: [
+          { role: "system", content: SYSTEM_PROMPT },
+          { role: "user", content: rawText },
+        ],
+      });
+      return JSON.parse(res.choices[0].message.content);
+    } catch (err) {
+      console.warn("⚠️ [Tier 1] Groq limit hit. Triggering Cerebras fallback...", err.message);
     }
   }
 
-  // 6. Generate Search Tags
-  const tags = Array.from(
-    new Set([
-      ...title.toLowerCase().split(/\s+/),
-      ...category.toLowerCase().split(/[\s\/]+/)
-    ])
-  ).filter(tag => tag.length > 2);
+  // Tier 2: Cerebras
+  if (cerebras) {
+    try {
+      const res = await cerebras.chat.completions.create({
+        model: "llama3.3-70b",
+        temperature: 0.1,
+        messages: [
+          { role: "system", content: SYSTEM_PROMPT },
+          { role: "user", content: rawText },
+        ],
+      });
+      return JSON.parse(res.choices[0].message.content);
+    } catch (err) {
+      console.warn("⚠️ [Tier 2] Cerebras failed. Triggering Gemini fallback...", err.message);
+    }
+  }
 
-  return {
-    title,
-    company,
-    category,
-    contactEmail: emails[0] || null,
-    contactPhone: phones[0] || null,
-    tags
-  };
+  // Tier 3: Google Gemini
+  if (genAI) {
+    try {
+      const model = genAI.getGenerativeModel({
+        model: "gemini-1.5-flash",
+        generationConfig: { responseMimeType: "application/json" },
+      });
+      const res = await model.generateContent(`${SYSTEM_PROMPT}\n\nJob Text:\n${rawText}`);
+      return JSON.parse(res.response.text());
+    } catch (err) {
+      console.warn("⚠️ [Tier 3] Gemini failed. Triggering OpenRouter fallback...", err.message);
+    }
+  }
+
+  // Tier 4: OpenRouter
+  if (openRouter) {
+    try {
+      const res = await openRouter.chat.completions.create({
+        model: "openrouter/free",
+        temperature: 0.1,
+        messages: [
+          { role: "system", content: SYSTEM_PROMPT },
+          { role: "user", content: rawText },
+        ],
+      });
+      return JSON.parse(res.choices[0].message.content);
+    } catch (err) {
+      console.warn("⚠️ [Tier 4] OpenRouter failed. Falling back to local Regex...", err.message);
+    }
+  }
+
+  // Tier 5: Local Regex Fallback
+  console.log("ℹ️ All AI APIs exhausted. Using local Regex parser.");
+  return { jobs: [parseRawJobText(rawText)] };
 };

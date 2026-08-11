@@ -3,29 +3,17 @@ import { StringSession } from "telegram/sessions/index.js";
 import { NewMessage } from "telegram/events/index.js";
 import { Job } from "../models/Job.js";
 import { generateRawHash } from "../utils/hash.js";
-import { parseRawJobText } from "./parser.js";
+import { 
+  parseJobWithMultiAIFallback, 
+  isLikelyJobPost 
+} from "./parser.js";
 import dotenv from "dotenv";
-import { Groq } from "groq-sdk";
-import OpenAI from "openai";
-import { GoogleGenerativeAI } from "@google/generative-ai";
+
 dotenv.config();
 
-const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
 const apiId = parseInt(process.env.TELEGRAM_API_ID, 10);
 const apiHash = process.env.TELEGRAM_API_HASH;
 const sessionString = process.env.TELEGRAM_SESSION_STRING;
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || "");
-
-const cerebras = new OpenAI({
-  apiKey: process.env.CEREBRAS_API_KEY,
-  baseURL: "https://api.cerebras.ai/v1",
-});
-
-const openRouter = new OpenAI({
-  apiKey: process.env.OPENROUTER_API_KEY,
-  baseURL: "https://openrouter.ai/api/v1",
-});
-
 
 const MONITORED_CHANNELS = [
   "effoyjobs",
@@ -34,149 +22,95 @@ const MONITORED_CHANNELS = [
   "jobs_in_ethio",
 ];
 
-/**
- * Parses raw job text using Groq's Llama-3 model into structured JSON format.
- * Falls back to regex if an error or API rate-limit occurs.
- */
-const SYSTEM_PROMPT = `
-You are an expert recruitment parser for Ethiopian job posts. 
-Extract structured details from the raw job text and output ONLY valid JSON using this format:
+// Helper: Breaks an array into chunked sub-arrays (e.g., batches of 5)
+const chunkArray = (arr, size) => 
+  Array.from({ length: Math.ceil(arr.length / size) }, (_, i) =>
+    arr.slice(i * size, i * size + size)
+  );
 
-{
-  "title": "Concise job title or 'Channel Vacancy'",
-  "company": "Company name or 'Not Specified'",
-  "category": "MUST be exactly one of: ['Software / IT', 'Finance & Accounting', 'Sales & Marketing', 'Healthcare', 'General / Other']",
-  "tags": ["array", "of", "up", "to", "5", "keywords"],
-  "contactEmail": "extracted email or null",
-  "contactPhone": "extracted phone number or null"
-}
+// Helper: Saves extracted jobs array safely to MongoDB
+const saveJobsToDatabase = async (parsedResult, rawText, rawHash, sourceName, date) => {
+  if (!parsedResult || !Array.isArray(parsedResult.jobs)) return 0;
 
-STRICT CATEGORIZATION RULES:
-1. "Software / IT": Include all tech roles, Web/Mobile Developers, DevOps Engineers, ML/AI Specialists, Data Analysts/Engineers, Cloud Engineers, System Admins, CyberSecurity, Product Managers, and IT Support.
-2. "Finance & Accounting": Accountants, Auditors, Financial Analysts, Cashiers, Bankers.
-3. "Sales & Marketing": Digital Marketers, Sales Representatives, Social Media Managers, Content Creators.
-4. "Healthcare": Doctors, Nurses, Pharmacists, Lab Technicians.
-5. "General / Other": Anything else that does not fit the above categories.
-`;
+  let savedCount = 0;
 
-/**
- * Robust Multi-Provider AI Job Parser Cascade
- */
-export const parseJobWithMultiAIFallback = async (rawText) => {
-  // Tier 1: Groq (Llama 3.1)
-  try {
-    const res = await groq.chat.completions.create({
-      model: "llama-3.1-8b-instant",
-      response_format: { type: "json_object" },
-      temperature: 0.1,
-      messages: [
-        { role: "system", content: SYSTEM_PROMPT },
-        { role: "user", content: rawText },
-      ],
-    });
-    return JSON.parse(res.choices[0].message.content);
-  } catch (err) {
-    console.warn("⚠️ [Tier 1] Groq failed/rate-limited. Failing over to Cerebras...", err.message);
+  for (let i = 0; i < parsedResult.jobs.length; i++) {
+    const jobItem = parsedResult.jobs[i];
+    // Create unique hash index if one message contains multiple job vacancies
+    const uniqueHash = parsedResult.jobs.length > 1 ? `${rawHash}_pos_${i}` : rawHash;
+
+    const existingJob = await Job.findOne({ rawHash: uniqueHash });
+    if (!existingJob) {
+      await Job.create({
+        rawHash: uniqueHash,
+        rawText,
+        title: jobItem.title,
+        company: jobItem.company,
+        category: jobItem.category,
+        tags: jobItem.tags,
+        contactEmail: jobItem.contactEmail,
+        contactPhone: jobItem.contactPhone,
+        sourceName,
+        createdAt: date ? new Date(date * 1000) : new Date(),
+      });
+      savedCount++;
+    }
   }
 
-  // Tier 2: Cerebras (Llama 3.3 / Fast Inference)
-  try {
-    const res = await cerebras.chat.completions.create({
-      model: "llama3.3-70b",
-      response_format: { type: "json_object" },
-      temperature: 0.1,
-      messages: [
-        { role: "system", content: SYSTEM_PROMPT },
-        { role: "user", content: rawText },
-      ],
-    });
-    return JSON.parse(res.choices[0].message.content);
-  } catch (err) {
-    console.warn("⚠️ [Tier 2] Cerebras failed. Failing over to Gemini...", err.message);
-  }
-
-  // Tier 3: Google Gemini Flash
-  try {
-    const model = genAI.getGenerativeModel({
-      model: "gemini-1.5-flash",
-      generationConfig: { responseMimeType: "application/json" },
-    });
-    const res = await model.generateContent(`${SYSTEM_PROMPT}\n\nJob Text:\n${rawText}`);
-    return JSON.parse(res.response.text());
-  } catch (err) {
-    console.warn("⚠️ [Tier 3] Gemini failed. Failing over to OpenRouter...", err.message);
-  }
-
-  // Tier 4: OpenRouter (Free Gateway Route)
-  try {
-    const res = await openRouter.chat.completions.create({
-      model: "openrouter/free", // Routes automatically to an available free model
-      temperature: 0.1,
-      messages: [
-        { role: "system", content: SYSTEM_PROMPT },
-        { role: "user", content: rawText },
-      ],
-    });
-    return JSON.parse(res.choices[0].message.content);
-  } catch (err) {
-    console.warn("⚠️ [Tier 4] OpenRouter failed. Falling back to local Regex...", err.message);
-  }
-
-  // Final Safety Net: Regex Parser
-  return parseRawJobText(rawText);
+  return savedCount;
 };
 
-// Helper to backfill past 7 days of messages
+// Fast Parallel Backfill
 const backfillPast7Days = async (client) => {
-  const sevenDaysAgoSeconds = Math.floor(
-    (Date.now() - 7 * 24 * 60 * 60 * 1000) / 1000,
-  );
-  console.log("⏳ Syncing job posts from the last 7 days using AI...");
+  const sevenDaysAgoSeconds = Math.floor((Date.now() - 7 * 24 * 60 * 60 * 1000) / 1000);
+  console.log("⏳ Starting fast parallel backfill (Past 7 Days)...");
 
   let totalImported = 0;
 
   for (const channelUsername of MONITORED_CHANNELS) {
     try {
-      console.log(`📥 Fetching recent history from @${channelUsername}...`);
+      console.log(`📥 Fetching history from @${channelUsername}...`);
+      const messages = await client.getMessages(channelUsername, { limit: 100 });
 
-      const messages = await client.getMessages(channelUsername, {
-        limit: 100,
-      });
+      // Step 1: Pre-filter valid job messages
+      const validMessages = messages.filter(
+        (msg) => msg && msg.text && msg.date >= sevenDaysAgoSeconds && isLikelyJobPost(msg.text)
+      );
 
-      for (const msg of messages) {
-        if (!msg || !msg.text || msg.date < sevenDaysAgoSeconds) continue;
+      // Step 2: Split into parallel processing chunks of 5
+      const messageChunks = chunkArray(validMessages, 5);
 
-        const rawText = msg.text;
-        const rawHash = generateRawHash(rawText);
+      for (const chunk of messageChunks) {
+        await Promise.all(
+          chunk.map(async (msg) => {
+            const rawText = msg.text;
+            const rawHash = generateRawHash(rawText);
+            if (!rawHash) return;
 
-        if (!rawHash) continue;
+            // Run Multi-AI parsing
+            const parsedResult = await parseJobWithMultiAIFallback(rawText);
 
-        const existingJob = await Job.findOne({ rawHash });
-        if (!existingJob) {
-          // Parse using AI with regex fallback
-          const parsedData = await parseWithAI(rawText);
+            // Save to MongoDB
+            const count = await saveJobsToDatabase(
+              parsedResult,
+              rawText,
+              rawHash,
+              `@${channelUsername}`,
+              msg.date
+            );
+            totalImported += count;
+          })
+        );
 
-          await Job.create({
-            rawHash,
-            rawText,
-            ...parsedData,
-            sourceName: `@${channelUsername}`,
-            createdAt: new Date(msg.date * 1000),
-          });
-          totalImported++;
-        }
+        // Small 300ms pause between chunks to keep within API rate limits
+        await new Promise((resolve) => setTimeout(resolve, 300));
       }
     } catch (err) {
-      console.error(
-        `⚠️ Could not fetch history for @${channelUsername}:`,
-        err.message,
-      );
+      console.error(`⚠️ Error fetching history for @${channelUsername}:`, err.message);
     }
   }
 
-  console.log(
-    `✅ Backfill complete! Loaded and AI-parsed ${totalImported} new jobs from the past 7 days.`,
-  );
+  console.log(`✅ Backfill complete! Integrated ${totalImported} new jobs.`);
 };
 
 export const initTelegramListener = async () => {
@@ -194,43 +128,37 @@ export const initTelegramListener = async () => {
   await client.connect();
   console.log("⚡ Connected to Telegram MTProto!");
 
-  // Step 1: Run 7-day backfill on startup
-  await backfillPast7Days(client);
+  // Run initial backfill asynchronously in the background
+  backfillPast7Days(client);
 
-  // Step 2: Listen for live real-time posts going forward
+  // Real-Time Live Message Listener
   client.addEventHandler(
     async (event) => {
       const message = event.message;
       if (!message || !message.text) return;
 
       const rawText = message.text;
+
+      // Fast Local Pre-Filter
+      if (!isLikelyJobPost(rawText)) return;
+
       const rawHash = generateRawHash(rawText);
-
       try {
-        const existingJob = await Job.findOne({ rawHash });
-        if (existingJob) return;
-
-        // Parse live stream post using AI
-        const parsedData = await parseWithAI(rawText);
-
-        const newJob = await Job.create({
-          rawHash,
+        const parsedResult = await parseJobWithMultiAIFallback(rawText);
+        await saveJobsToDatabase(
+          parsedResult,
           rawText,
-          ...parsedData,
-          sourceName: "Telegram Live Stream",
-        });
-
-        console.log(
-          `📩 New Live Job Parsed & Saved via AI! Title: "${newJob.title}" | Category: "${newJob.category}"`
+          rawHash,
+          "Telegram Live Stream",
+          message.date
         );
+        console.log(`📩 New Live Job Parsed & Saved! Text snippet: "${rawText.slice(0, 40)}..."`);
       } catch (err) {
         console.error("❌ Live Stream Save Error:", err.message);
       }
     },
-    new NewMessage({ chats: MONITORED_CHANNELS }),
+    new NewMessage({ chats: MONITORED_CHANNELS })
   );
 
-  console.log(
-    `🎧 Live listener actively monitoring: ${MONITORED_CHANNELS.join(", ")}`,
-  );
+  console.log(`🎧 Live listener active for channels: ${MONITORED_CHANNELS.join(", ")}`);
 };
