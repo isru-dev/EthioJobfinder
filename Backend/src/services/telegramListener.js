@@ -8,7 +8,8 @@ import {
   isLikelyJobPost 
 } from "./parser.js";
 import dotenv from "dotenv";
-
+import { User } from "../models/User.js";
+import { sendTelegramJobAlert } from "../services/notifier.js";
 dotenv.config();
 
 const apiId = parseInt(process.env.TELEGRAM_API_ID, 10);
@@ -28,7 +29,9 @@ const chunkArray = (arr, size) =>
     arr.slice(i * size, i * size + size)
   );
 
-// Helper: Saves extracted jobs array safely to MongoDB with deep link details
+
+
+// Helper: Saves extracted jobs array safely to MongoDB & triggers user alerts
 const saveJobsToDatabase = async ({
   parsedResult,
   rawText,
@@ -56,7 +59,7 @@ const saveJobsToDatabase = async ({
 
     const existingJob = await Job.findOne({ rawHash: uniqueHash });
     if (!existingJob) {
-      await Job.create({
+      const newJob = await Job.create({
         rawHash: uniqueHash,
         rawText,
         title: jobItem.title,
@@ -73,6 +76,28 @@ const saveJobsToDatabase = async ({
         createdAt: date ? new Date(date * 1000) : new Date(),
       });
       savedCount++;
+
+      // ----------------------------------------------------
+      // DISPATCH REAL-TIME ALERTS TO SUBSCRIBED USERS
+      // ----------------------------------------------------
+      if (jobItem.category) {
+        try {
+          // Find all users who enabled notifications and opted into this category
+          const matchingUsers = await User.find({
+            notificationsEnabled: true,
+            subscribedCategories: jobItem.category,
+          });
+
+          // Send message asynchronously (or run in parallel with Promise.allSettled)
+          Promise.allSettled(
+            matchingUsers.map((user) => sendTelegramJobAlert(user.telegramId, newJob))
+          ).catch((err) =>
+            console.error("Error sending user notifications:", err.message)
+          );
+        } catch (alertErr) {
+          console.error("Notification query failed:", alertErr.message);
+        }
+      }
     }
   }
 
