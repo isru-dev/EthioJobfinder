@@ -14,7 +14,7 @@ export default function JobFeed() {
   const [jobs, setJobs] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-
+  const [dark, setDark] = useState(false);
   // Filter & Pagination States
   const [search, setSearch] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("All");
@@ -56,7 +56,7 @@ export default function JobFeed() {
   }, [search, selectedCategory, page]);
 
   return (
-    <div className="min-h-screen bg-slate-50 text-slate-800 font-sans p-6 md:p-12">
+    <div className={`min-h-screen font-sans p-6 md:p-12 ${dark ? 'bg-slate-950 text-white' : 'bg-slate-50 text-slate-800'}`}>
       <div className="max-w-7xl mx-auto space-y-8">
         
         {/* Header */}

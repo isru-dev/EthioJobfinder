@@ -5,9 +5,11 @@ import { Job } from "../models/Job.js";
 import { generateRawHash } from "../utils/hash.js";
 import { parseRawJobText } from "./parser.js";
 import dotenv from "dotenv";
+import { Groq } from "groq-sdk";
 
 dotenv.config();
 
+const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
 const apiId = parseInt(process.env.TELEGRAM_API_ID, 10);
 const apiHash = process.env.TELEGRAM_API_HASH;
 const sessionString = process.env.TELEGRAM_SESSION_STRING;
@@ -19,12 +21,57 @@ const MONITORED_CHANNELS = [
   "jobs_in_ethio",
 ];
 
+/**
+ * Parses raw job text using Groq's Llama-3 model into structured JSON format.
+ * Falls back to regex if an error or API rate-limit occurs.
+ */
+const parseWithAI = async (rawText) => {
+  const systemPrompt = `
+  You are an expert recruitment parser for Ethiopian job posts. 
+  Extract structured details from the raw job text and output ONLY valid JSON using this format:
+
+  {
+    "title": "Concise job title or 'Channel Vacancy'",
+    "company": "Company name or 'Not Specified'",
+    "category": "MUST be exactly one of: ['Software / IT', 'Finance & Accounting', 'Sales & Marketing', 'Healthcare', 'General / Other']",
+    "tags": ["array", "of", "up", "to", "5", "keywords"],
+    "contactEmail": "extracted email or null",
+    "contactPhone": "extracted phone number or null"
+  }
+
+  STRICT CATEGORIZATION RULES:
+  1. "Software / IT": Include all tech roles, Web/Mobile Developers, DevOps Engineers, ML/AI Specialists, Data Analysts/Engineers, Cloud Engineers, System Admins, CyberSecurity, Product Managers, and IT Support.
+  2. "Finance & Accounting": Accountants, Auditors, Financial Analysts, Cashiers, Bankers.
+  3. "Sales & Marketing": Digital Marketers, Sales Representatives, Social Media Managers, Content Creators.
+  4. "Healthcare": Doctors, Nurses, Pharmacists, Lab Technicians.
+  5. "General / Other": Anything else that does not fit the above categories.
+  `;
+
+  try {
+    const response = await groq.chat.completions.create({
+      model: "llama-3.1-8b-instant",
+      response_format: { type: "json_object" },
+      temperature: 0.1, // Low temperature for deterministic outputs
+      messages: [
+        { role: "system", content: systemPrompt },
+        { role: "user", content: rawText },
+      ],
+    });
+
+    const parsedData = JSON.parse(response.choices[0].message.content);
+    return parsedData;
+  } catch (error) {
+    console.warn("⚠️ AI parsing failed, falling back to regex parser:", error.message);
+    return parseRawJobText(rawText);
+  }
+};
+
 // Helper to backfill past 7 days of messages
 const backfillPast7Days = async (client) => {
   const sevenDaysAgoSeconds = Math.floor(
     (Date.now() - 7 * 24 * 60 * 60 * 1000) / 1000,
   );
-  console.log("⏳ Syncing job posts from the last 7 days...");
+  console.log("⏳ Syncing job posts from the last 7 days using AI...");
 
   let totalImported = 0;
 
@@ -32,13 +79,11 @@ const backfillPast7Days = async (client) => {
     try {
       console.log(`📥 Fetching recent history from @${channelUsername}...`);
 
-      // Fetch up to 100 recent messages from the channel
       const messages = await client.getMessages(channelUsername, {
         limit: 100,
       });
 
       for (const msg of messages) {
-        // Skip non-text or messages older than 7 days
         if (!msg || !msg.text || msg.date < sevenDaysAgoSeconds) continue;
 
         const rawText = msg.text;
@@ -46,18 +91,17 @@ const backfillPast7Days = async (client) => {
 
         if (!rawHash) continue;
 
-        // Check for duplicate post
         const existingJob = await Job.findOne({ rawHash });
         if (!existingJob) {
-          // Parse raw text into structured fields
-          const parsedData = parseRawJobText(rawText);
+          // Parse using AI with regex fallback
+          const parsedData = await parseWithAI(rawText);
 
           await Job.create({
             rawHash,
             rawText,
             ...parsedData,
             sourceName: `@${channelUsername}`,
-            createdAt: new Date(msg.date * 1000), // Retain original post date
+            createdAt: new Date(msg.date * 1000),
           });
           totalImported++;
         }
@@ -71,7 +115,7 @@ const backfillPast7Days = async (client) => {
   }
 
   console.log(
-    `✅ Backfill complete! Loaded and parsed ${totalImported} new jobs from the past 7 days.`,
+    `✅ Backfill complete! Loaded and AI-parsed ${totalImported} new jobs from the past 7 days.`,
   );
 };
 
@@ -106,8 +150,8 @@ export const initTelegramListener = async () => {
         const existingJob = await Job.findOne({ rawHash });
         if (existingJob) return;
 
-        // Parse raw live post
-        const parsedData = parseRawJobText(rawText);
+        // Parse live stream post using AI
+        const parsedData = await parseWithAI(rawText);
 
         const newJob = await Job.create({
           rawHash,
@@ -116,7 +160,9 @@ export const initTelegramListener = async () => {
           sourceName: "Telegram Live Stream",
         });
 
-        console.log(`📩 New Live Job Parsed & Saved! Title: "${newJob.title}" | ID: ${newJob._id}`);
+        console.log(
+          `📩 New Live Job Parsed & Saved via AI! Title: "${newJob.title}" | Category: "${newJob.category}"`
+        );
       } catch (err) {
         console.error("❌ Live Stream Save Error:", err.message);
       }
