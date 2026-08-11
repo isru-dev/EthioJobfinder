@@ -28,11 +28,26 @@ const chunkArray = (arr, size) =>
     arr.slice(i * size, i * size + size)
   );
 
-// Helper: Saves extracted jobs array safely to MongoDB
-const saveJobsToDatabase = async (parsedResult, rawText, rawHash, sourceName, date) => {
+// Helper: Saves extracted jobs array safely to MongoDB with deep link details
+const saveJobsToDatabase = async ({
+  parsedResult,
+  rawText,
+  rawHash,
+  channelUsername,
+  messageId,
+  date,
+}) => {
   if (!parsedResult || !Array.isArray(parsedResult.jobs)) return 0;
 
   let savedCount = 0;
+  const cleanUsername = channelUsername ? channelUsername.replace("@", "") : null;
+  
+  // Construct direct Telegram link
+  const postUrl = cleanUsername && messageId 
+    ? `https://t.me/${cleanUsername}/${messageId}` 
+    : cleanUsername 
+    ? `https://t.me/${cleanUsername}` 
+    : null;
 
   for (let i = 0; i < parsedResult.jobs.length; i++) {
     const jobItem = parsedResult.jobs[i];
@@ -50,7 +65,11 @@ const saveJobsToDatabase = async (parsedResult, rawText, rawHash, sourceName, da
         tags: jobItem.tags,
         contactEmail: jobItem.contactEmail,
         contactPhone: jobItem.contactPhone,
-        sourceName,
+        sourceName: cleanUsername ? `@${cleanUsername}` : "Telegram",
+        sourceType: "telegram",
+        messageId: messageId || null,
+        channelUsername: cleanUsername ? `@${cleanUsername}` : null,
+        postUrl,
         createdAt: date ? new Date(date * 1000) : new Date(),
       });
       savedCount++;
@@ -90,14 +109,15 @@ const backfillPast7Days = async (client) => {
             // Run Multi-AI parsing
             const parsedResult = await parseJobWithMultiAIFallback(rawText);
 
-            // Save to MongoDB
-            const count = await saveJobsToDatabase(
+            // Save to MongoDB with postUrl & message ID
+            const count = await saveJobsToDatabase({
               parsedResult,
               rawText,
               rawHash,
-              `@${channelUsername}`,
-              msg.date
-            );
+              channelUsername,
+              messageId: msg.id,
+              date: msg.date,
+            });
             totalImported += count;
           })
         );
@@ -143,16 +163,27 @@ export const initTelegramListener = async () => {
       if (!isLikelyJobPost(rawText)) return;
 
       const rawHash = generateRawHash(rawText);
+
+      // Dynamically extract channel username from chat sender
+      let channelUsername = null;
+      try {
+        const chat = await message.getChat();
+        channelUsername = chat?.username || null;
+      } catch (err) {
+        console.warn("Could not extract chat entity for live event:", err.message);
+      }
+
       try {
         const parsedResult = await parseJobWithMultiAIFallback(rawText);
-        await saveJobsToDatabase(
+        await saveJobsToDatabase({
           parsedResult,
           rawText,
           rawHash,
-          "Telegram Live Stream",
-          message.date
-        );
-        console.log(`📩 New Live Job Parsed & Saved! Text snippet: "${rawText.slice(0, 40)}..."`);
+          channelUsername,
+          messageId: message.id,
+          date: message.date,
+        });
+        console.log(`📩 New Live Job Parsed & Saved! Link: https://t.me/${channelUsername}/${message.id}`);
       } catch (err) {
         console.error("❌ Live Stream Save Error:", err.message);
       }

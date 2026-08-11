@@ -37,12 +37,25 @@ const jobSchema = new mongoose.Schema(
     tags: [{ type: String, lowercase: true, trim: true }],
     sourceName: {
       type: String,
-      required: true,
+      required: true, // e.g. "@effoyjobs"
     },
     sourceType: {
       type: String,
       enum: ["telegram", "web"],
       default: "telegram",
+    },
+    // NEW OPTIONAL FIELDS FOR DEEP LINKING
+    messageId: {
+      type: Number,
+      default: null,
+    },
+    channelUsername: {
+      type: String,
+      default: null,
+    },
+    postUrl: {
+      type: String,
+      default: null,
     },
   },
   { timestamps: true }

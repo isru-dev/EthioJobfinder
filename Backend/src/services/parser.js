@@ -3,52 +3,87 @@ import OpenAI from "openai";
 import { GoogleGenerativeAI } from "@google/generative-ai";
 
 // Keyword dictionary for automatic category classification
-const CATEGORY_MAP = {
+export const CATEGORY_MAP = {
   "Software / IT": [
-    "developer", "software", "frontend", "backend", "fullstack", "react",
-    "node", "python", "java", "tech", "web", "ui/ux", "designer", "data",
-    "devops", "cloud", "system", "network", "cybersecurity", "ai", "machine learning"
+    "developer",
+    "software",
+    "frontend",
+    "backend",
+    "fullstack",
+    "react",
+    "node",
+    "python",
+    "java",
+    "tech",
+    "web",
+    "ui/ux",
+    "designer",
+    "data",
+    "devops",
+    "cloud",
+    "system",
+    "network",
+    "cybersecurity",
+    "ai",
+    "machine learning",
   ],
   "Video / Graphics": [
-    "video", "editor", "editing", "graphic", "graphics", "motion", "animator",
-    "animation", "photoshop", "premiere", "after effects", "illustrator",
-    "videographer", "creative", "content creator", "thumbnail", "design", "designer",
-    "ቪዲዮ", "ኤዲተር", "ግራፊክስ"
+    "video",
+    "editor",
+    "editing",
+    "graphic",
+    "graphics",
+    "motion",
+    "animator",
+    "animation",
+    "photoshop",
+    "premiere",
+    "after effects",
+    "illustrator",
+    "videographer",
+    "creative",
+    "content creator",
+    "thumbnail",
+    "design",
+    "designer",
+    "ቪዲዮ",
+    "ኤዲተር",
+    "ግራፊክስ",
   ],
   "Finance & Accounting": [
-    "accountant", "finance", "auditor", "banking", "tax", "payroll", "cashier", "አካውንታንት"
+    "accountant",
+    "finance",
+    "auditor",
+    "banking",
+    "tax",
+    "payroll",
+    "cashier",
+    "አካውንታንት",
   ],
   "Sales & Marketing": [
-    "marketing", "sales", "social media", "content", "manager", "business",
-    "copywriter", "digital marketing", "promoter", "seo"
+    "marketing",
+    "sales",
+    "social media",
+    "content",
+    "manager",
+    "business",
+    "copywriter",
+    "digital marketing",
+    "promoter",
+    "seo",
   ],
-  "Healthcare": [
-    "nurse", "doctor", "health", "clinical", "pharmacy", "pharmacist", "lab", "medical"
+  Healthcare: [
+    "nurse",
+    "doctor",
+    "health",
+    "clinical",
+    "pharmacy",
+    "pharmacist",
+    "lab",
+    "medical",
   ],
-  "General / Other": []
+  "General / Other": [],
 };
-
-
-
-const groq = new Groq({ apiKey: process.env.GROQ_API_KEY || "" });
-
-const cerebras = process.env.CEREBRAS_API_KEY
-  ? new OpenAI({
-      apiKey: process.env.CEREBRAS_API_KEY,
-      baseURL: "https://api.cerebras.ai/v1",
-    })
-  : null;
-
-const genAI = process.env.GEMINI_API_KEY
-  ? new GoogleGenerativeAI(process.env.GEMINI_API_KEY)
-  : null;
-
-const openRouter = process.env.OPENROUTER_API_KEY
-  ? new OpenAI({
-      apiKey: process.env.OPENROUTER_API_KEY,
-      baseURL: "https://openrouter.ai/api/v1",
-    })
-  : null;
 
 const SYSTEM_PROMPT = `
 You are an expert AI recruiter specialized in extracting job listings from Ethiopian Telegram channels.
@@ -88,7 +123,9 @@ If the post is in Amharic, TRANSLATE title, company, category, and tags into Eng
  */
 export const parseRawJobText = (rawText) => {
   const emailMatch = rawText.match(/[\w.-]+@[\w.-]+\.\w+/);
-  const phoneMatch = rawText.match(/(?:\+251|0)\s?\d{2}\s?\d{3}\s?\d{4}|\b09\d{8}\b/);
+  const phoneMatch = rawText.match(
+    /(?:\+251|0)\s?\d{2}\s?\d{3}\s?\d{4}|\b09\d{8}\b/,
+  );
 
   return {
     title: "Channel Vacancy",
@@ -108,11 +145,29 @@ export const isLikelyJobPost = (text) => {
 
   const jobKeywords = [
     // English keywords
-    "job", "vacancy", "hiring", "position", "apply", "qualification",
-    "salary", "deadline", "experience", "education", "requirements", "officer",
+    "job",
+    "vacancy",
+    "hiring",
+    "position",
+    "apply",
+    "qualification",
+    "salary",
+    "deadline",
+    "experience",
+    "education",
+    "requirements",
+    "officer",
     // Amharic keywords
-    "የስራ", "ማስታወቂያ", "ተወዳዳሪ", "የትምህርት", "ልምድ",
-    "ደመወዝ", "ቅጥር", "ኦፊሰር", "አመልካቾች", "የምዝገባ"
+    "የስራ",
+    "ማስታወቂያ",
+    "ተወዳዳሪ",
+    "የትምህርት",
+    "ልምድ",
+    "ደመወዝ",
+    "ቅጥር",
+    "ኦፊሰር",
+    "አመልካቾች",
+    "የምዝገባ",
   ];
 
   const lowerText = text.toLowerCase();
@@ -120,12 +175,21 @@ export const isLikelyJobPost = (text) => {
 };
 
 /**
- * Multi-Tier AI Fallback Engine
+ * Multi-Tier AI Fallback Engine:
+ * Tier 1: Groq (Llama 3.1 8B Instant)
+ * Tier 2: Cerebras (Llama 3.3 70B)
+ * Tier 3: Google Gemini (Gemini 1.5 Flash)
+ * Tier 4: OpenRouter (Free Tier Gateway)
+ * Tier 5: Local Regex Fallback
  */
 export const parseJobWithMultiAIFallback = async (rawText) => {
+  // ----------------------------------------------------
   // Tier 1: Groq
+  // ----------------------------------------------------
   if (process.env.GROQ_API_KEY) {
     try {
+      console.log("groq ....");
+      const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
       const res = await groq.chat.completions.create({
         model: "llama-3.1-8b-instant",
         response_format: { type: "json_object" },
@@ -137,16 +201,29 @@ export const parseJobWithMultiAIFallback = async (rawText) => {
       });
       return JSON.parse(res.choices[0].message.content);
     } catch (err) {
-      console.warn("⚠️ [Tier 1] Groq limit hit. Triggering Cerebras fallback...", err.message);
+      console.warn(
+        "⚠️ [Tier 1] Groq limit hit. Triggering Cerebras fallback...",
+        err.message,
+      );
     }
   }
 
+  // ----------------------------------------------------
   // Tier 2: Cerebras
-  if (cerebras) {
+  // ----------------------------------------------------
+  if (
+    process.env.CEREBRAS_API_KEY
+  ) {
     try {
+      console.log("Cerebras ....");
+      const cerebras = new OpenAI({
+        apiKey: process.env.CEREBRAS_API_KEY,
+        baseURL: "https://api.cerebras.ai/v1",
+      });
       const res = await cerebras.chat.completions.create({
-        model: "llama3.3-70b",
+        model: "gemma-4-31b",
         temperature: 0.1,
+        response_format: { type: "json_object" }, 
         messages: [
           { role: "system", content: SYSTEM_PROMPT },
           { role: "user", content: rawText },
@@ -154,15 +231,22 @@ export const parseJobWithMultiAIFallback = async (rawText) => {
       });
       return JSON.parse(res.choices[0].message.content);
     } catch (err) {
-      console.warn("⚠️ [Tier 2] Cerebras failed. Triggering Gemini fallback...", err.message);
+      console.warn(
+        "⚠️ [Tier 2] Cerebras failed. Triggering Gemini fallback...",
+        err.message,
+      );
     }
   }
 
+  // ----------------------------------------------------
   // Tier 3: Google Gemini
-  if (genAI) {
+  // ----------------------------------------------------
+  if (process.env.GEMINI_API_KEY) {
     try {
+      console.log("Gemini ....");
+      const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
       const model = genAI.getGenerativeModel({
-        model: "gemini-1.5-flash",
+        model: "gemini-2.0-flash", // Unpdated active model ID
         generationConfig: { responseMimeType: "application/json" },
       });
       const res = await model.generateContent(`${SYSTEM_PROMPT}\n\nJob Text:\n${rawText}`);
@@ -172,11 +256,23 @@ export const parseJobWithMultiAIFallback = async (rawText) => {
     }
   }
 
+  
+ // ----------------------------------------------------
   // Tier 4: OpenRouter
-  if (openRouter) {
+  // ----------------------------------------------------
+  if (process.env.OPENROUTER_API_KEY) {
     try {
+      console.log("OpenRouter ....");
+      const openRouter = new OpenAI({
+        apiKey: process.env.OPENROUTER_API_KEY,
+        baseURL: "https://openrouter.ai/api/v1",
+        defaultHeaders: {
+          "HTTP-Referer": "http://localhost:5000",
+          "X-Title": "EthioJobFinder",
+        },
+      });
       const res = await openRouter.chat.completions.create({
-        model: "openrouter/free",
+        model: "meta-llama/llama-3.3-70b-instruct:free",
         temperature: 0.1,
         messages: [
           { role: "system", content: SYSTEM_PROMPT },
@@ -189,7 +285,10 @@ export const parseJobWithMultiAIFallback = async (rawText) => {
     }
   }
 
+
+  // ----------------------------------------------------
   // Tier 5: Local Regex Fallback
+  // ----------------------------------------------------
   console.log("ℹ️ All AI APIs exhausted. Using local Regex parser.");
   return { jobs: [parseRawJobText(rawText)] };
 };
