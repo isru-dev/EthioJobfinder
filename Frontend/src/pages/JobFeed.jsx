@@ -1,6 +1,5 @@
 import { useState, useEffect } from "react";
 import { fetchJobs } from "../api/jobService";
-import Navbar from "../Component/Navbar"; // 1. Import Navbar instead of LoginSection
 
 const CATEGORIES = [
   "All",
@@ -88,9 +87,7 @@ export default function JobFeed() {
     >
       <div className="max-w-7xl mx-auto space-y-8">
         
-        {/* 2. Render Navbar at the top of the feed layout */}
-        <Navbar user={user} setUser={setUser} />
-
+      
         {/* Header */}
         <header className="text-center space-y-3">
           <h1 className="text-4xl font-extrabold text-slate-900 tracking-tight">
