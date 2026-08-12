@@ -1,4 +1,4 @@
-import  { useState } from "react";
+import { useState } from "react";
 
 const CATEGORIES = [
   "Software / IT",
@@ -40,8 +40,6 @@ export default function PreferencesModal({ user, onClose, onSave }) {
   return (
     <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm flex items-center justify-center p-4 z-50">
       <div className="bg-white rounded-2xl max-w-md w-full p-6 space-y-6 shadow-2xl border border-slate-100">
-        
-        {/* Header */}
         <div className="flex justify-between items-center border-b pb-4">
           <div>
             <h2 className="text-xl font-bold text-slate-900">
@@ -59,10 +57,10 @@ export default function PreferencesModal({ user, onClose, onSave }) {
           </button>
         </div>
 
-        {/* Global Alert Switch */}
-        <div className="flex items-center justify-between bg-slate-50 p-3 rounded-xl">
+        {/* Master Switch */}
+        <div className="flex items-center justify-between bg-slate-50 p-3 rounded-xl border border-slate-200">
           <span className="text-sm font-semibold text-slate-700">
-            Enable Direct Alerts on Telegram
+            Enable Direct DM Alerts
           </span>
           <input
             type="checkbox"
@@ -72,29 +70,33 @@ export default function PreferencesModal({ user, onClose, onSave }) {
           />
         </div>
 
-        {/* Category Selector */}
+        {/* Category Pickers */}
         <div className="space-y-2">
           <label className="text-xs font-bold text-slate-500 uppercase tracking-wider">
-            Select Your Preferred Fields
+            Select Preferred Fields
           </label>
           <div className="grid grid-cols-1 gap-2 pt-1">
-            {CATEGORIES.map((category) => {
-              const isChecked = selectedCategories.includes(category);
+            {CATEGORIES.map((cat) => {
+              const isChecked = selectedCategories.includes(cat);
               return (
                 <button
-                  key={category}
+                  key={cat}
                   type="button"
-                  onClick={() => toggleCategory(category)}
+                  onClick={() => toggleCategory(cat)}
                   className={`flex items-center justify-between p-3 rounded-xl border text-sm font-medium transition-all ${
                     isChecked
                       ? "border-indigo-600 bg-indigo-50/60 text-indigo-900"
                       : "border-slate-200 bg-white text-slate-600 hover:bg-slate-50"
                   }`}
                 >
-                  <span>{category}</span>
-                  <span className={`text-xs px-2 py-0.5 rounded-md font-semibold ${
-                    isChecked ? "bg-indigo-600 text-white" : "bg-slate-200 text-slate-500"
-                  }`}>
+                  <span>{cat}</span>
+                  <span
+                    className={`text-xs px-2 py-0.5 rounded-md font-semibold ${
+                      isChecked
+                        ? "bg-indigo-600 text-white"
+                        : "bg-slate-200 text-slate-500"
+                    }`}
+                  >
                     {isChecked ? "Subscribed" : "Off"}
                   </span>
                 </button>
@@ -103,7 +105,7 @@ export default function PreferencesModal({ user, onClose, onSave }) {
           </div>
         </div>
 
-        {/* Action Buttons */}
+        {/* Actions */}
         <div className="flex gap-3 pt-2">
           <button
             onClick={handleSave}
@@ -119,7 +121,6 @@ export default function PreferencesModal({ user, onClose, onSave }) {
             Cancel
           </button>
         </div>
-
       </div>
     </div>
   );

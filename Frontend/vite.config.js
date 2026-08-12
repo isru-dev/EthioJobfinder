@@ -5,4 +5,7 @@ export default defineConfig({
   plugins: [
     tailwindcss(),
   ],
+  server: {
+    allowedHosts: ['.ngrok-free.dev'], // Allows any ngrok sub-domain
+  },
 })

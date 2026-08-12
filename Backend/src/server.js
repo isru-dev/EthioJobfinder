@@ -3,7 +3,8 @@ import cors from "cors";
 import dotenv from "dotenv";
 import {connectDB} from "./config/db.js";
 import { initTelegramListener } from "./services/telegramListener.js";
-import jobRoutes from './routes/jobRoutes.js'
+import jobRoutes from './routes/jobRoutes.js';
+import auth from './routes/auth.js';
 dotenv.config();
 
 const app = express();
@@ -13,7 +14,7 @@ app.use(express.json());
 const PORT = process.env.PORT || 5000;
 
 app.use("/api/v1/jobs", jobRoutes);
-
+app.use("/api/auth", auth);
 const startApp = async () => {
   // 1. Connect to Database
   await connectDB();

@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { fetchJobs } from "../api/jobService";
+import LoginSection from "./LoginSection";
 
 const CATEGORIES = [
   "All",
@@ -91,6 +92,9 @@ export default function JobFeed() {
             Real-time aggregated vacancies powered by live Telegram streams
           </p>
         </header>
+        <div className="max-w-md mx-auto">
+        <LoginSection />
+      </div>
 
         {/* Controls: Search & Category Filters */}
         <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 space-y-4">
