@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { fetchJobs } from "../api/jobService";
-import LoginSection from "./LoginSection";
+import Navbar from "../Component/Navbar"; // 1. Import Navbar instead of LoginSection
 
 const CATEGORIES = [
   "All",
@@ -12,7 +12,6 @@ const CATEGORIES = [
   "General / Other",
 ];
 
-// Helper to resolve Telegram Post URL dynamically
 const getTelegramUrl = (job) => {
   if (!job) return "https://t.me";
   if (job.postUrl) return job.postUrl;
@@ -29,6 +28,12 @@ const getTelegramUrl = (job) => {
 };
 
 export default function JobFeed() {
+  // Read initial user state from localStorage
+  const [user, setUser] = useState(() => {
+    const saved = localStorage.getItem("ethio_job_user");
+    return saved ? JSON.parse(saved) : null;
+  });
+
   const [jobs, setJobs] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -68,7 +73,6 @@ export default function JobFeed() {
       }
     };
 
-    // Debounce search requests slightly
     const timer = setTimeout(() => {
       loadJobs();
     }, 300);
@@ -83,6 +87,10 @@ export default function JobFeed() {
       }`}
     >
       <div className="max-w-7xl mx-auto space-y-8">
+        
+        {/* 2. Render Navbar at the top of the feed layout */}
+        <Navbar user={user} setUser={setUser} />
+
         {/* Header */}
         <header className="text-center space-y-3">
           <h1 className="text-4xl font-extrabold text-slate-900 tracking-tight">
@@ -92,9 +100,6 @@ export default function JobFeed() {
             Real-time aggregated vacancies powered by live Telegram streams
           </p>
         </header>
-        <div className="max-w-md mx-auto">
-        <LoginSection />
-      </div>
 
         {/* Controls: Search & Category Filters */}
         <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 space-y-4">
@@ -106,7 +111,7 @@ export default function JobFeed() {
               value={search}
               onChange={(e) => {
                 setSearch(e.target.value);
-                setPage(1); // Reset to page 1 on new query
+                setPage(1);
               }}
               className="w-full pl-4 pr-10 py-3 rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all text-slate-900 placeholder-slate-400"
             />
@@ -182,7 +187,6 @@ export default function JobFeed() {
                   className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm hover:shadow-md transition-all flex flex-col justify-between"
                 >
                   <div className="space-y-3">
-                    {/* Metadata Header */}
                     <div className="flex justify-between items-start gap-2">
                       <span className="px-3 py-1 bg-indigo-50 text-indigo-700 text-xs font-semibold rounded-lg">
                         {job.category}
@@ -192,7 +196,6 @@ export default function JobFeed() {
                       </span>
                     </div>
 
-                    {/* Title & Company */}
                     <div>
                       <h3 className="text-lg font-bold text-slate-900 line-clamp-1">
                         {job.title}
@@ -202,7 +205,6 @@ export default function JobFeed() {
                       </p>
                     </div>
 
-                    {/* Tags */}
                     <div className="flex flex-wrap gap-1.5 pt-1">
                       {job.tags?.slice(0, 4).map((tag, idx) => (
                         <span
@@ -214,7 +216,6 @@ export default function JobFeed() {
                       ))}
                     </div>
 
-                    {/* Contact Chips */}
                     <div className="pt-2 text-xs space-y-1 text-slate-600">
                       {job.contactEmail && (
                         <div className="truncate">✉️ {job.contactEmail}</div>
@@ -225,7 +226,6 @@ export default function JobFeed() {
                     </div>
                   </div>
 
-                  {/* Card Actions */}
                   <div className="mt-6 space-y-2">
                     <button
                       onClick={() => setActiveJob(job)}
@@ -234,7 +234,6 @@ export default function JobFeed() {
                       View Details
                     </button>
 
-                    {/* Direct Telegram Link Button */}
                     <a
                       href={telegramUrl}
                       target="_blank"
@@ -299,7 +298,6 @@ export default function JobFeed() {
                 </button>
               </div>
 
-              {/* Source Tag & Metadata */}
               <div className="flex items-center gap-2">
                 <span className="px-3 py-1 bg-slate-100 text-slate-600 text-xs rounded-lg font-medium">
                   Source: {activeJob.sourceName}
@@ -309,12 +307,10 @@ export default function JobFeed() {
                 </span>
               </div>
 
-              {/* Raw Job Description */}
               <div className="bg-slate-50 p-4 rounded-xl text-slate-700 whitespace-pre-wrap font-mono text-xs leading-relaxed border border-slate-200">
                 {activeJob.rawText}
               </div>
 
-              {/* Actions */}
               <div className="flex flex-col md:flex-row gap-3 pt-2">
                 <a
                   href={getTelegramUrl(activeJob)}

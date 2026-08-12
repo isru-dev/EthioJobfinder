@@ -1,29 +1,13 @@
 import TelegramLoginButton from "../Component/TelegramLoginButton";
 
-export default function LoginSection() {
-  // Callback function triggered automatically when user logs in via Telegram
+export default function LoginSection({ onLoginSuccess }) {
   const handleTelegramAuth = (telegramUser) => {
-    console.log("Authenticated Telegram User:", telegramUser);
-    /* 
-      telegramUser object contains:
-      {
-        id: 123456789,
-        first_name: "Israel",
-        last_name: "Sima",
-        username: "israelgezahegn",
-        photo_url: "https://t.me/i/userpic/...",
-        auth_date: 1723400000,
-        hash: "a1b2c3d4..."
-      }
-    */
-
-    // Send this payload to your backend for verification & login
     authenticateWithBackend(telegramUser);
   };
 
   const authenticateWithBackend = async (userData) => {
     try {
-      const response = await fetch("http://localhost:5000/api/auth/telegram", {
+      const response = await fetch("/api/auth/telegram", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(userData),
@@ -31,9 +15,15 @@ export default function LoginSection() {
 
       const data = await response.json();
       if (response.ok) {
-        alert(`Welcome back, ${data.user.first_name}!`);
+        // Save user to localStorage so session persists on refresh
+        localStorage.setItem("ethio_job_user", JSON.stringify(data.user));
+
+        // Pass user up to App/Parent state
+        if (onLoginSuccess) {
+          onLoginSuccess(data.user);
+        }
       } else {
-        alert(data.error);
+        alert(data.error || "Authentication failed");
       }
     } catch (err) {
       console.error("Authentication error:", err);
@@ -41,17 +31,12 @@ export default function LoginSection() {
   };
 
   return (
-    <div className="flex flex-col items-center justify-center p-6 bg-white rounded-2xl shadow-sm border border-slate-200">
+    <div className="p-6 bg-white rounded-2xl shadow-sm border border-slate-200 text-center">
       <h3 className="text-lg font-bold text-slate-800 mb-2">
-        Sign in to Get Job Alerts
+        Sign in with Telegram
       </h3>
-      <p className="text-sm text-slate-500 mb-4">
-        Log in with Telegram to manage your notification preferences.
-      </p>
-
-      {/* Render the Telegram Login Widget */}
       <TelegramLoginButton
-        botName="EJobExplore_bot" // Replace with your BotFather username (NO @ symbol)
+        botName="EJobExplore_bot"
         onAuth={handleTelegramAuth}
       />
     </div>

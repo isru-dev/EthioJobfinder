@@ -8,7 +8,7 @@ import {
   isLikelyJobPost 
 } from "./parser.js";
 import dotenv from "dotenv";
-import { User } from "../models/User.js";
+import User from '../models/User.js'
 import { sendTelegramJobAlert } from "../services/notifier.js";
 dotenv.config();
 

@@ -1,29 +1,30 @@
 import mongoose from "mongoose";
 
-const userSchema = new mongoose.Schema(
+const User = new mongoose.Schema(
   {
     telegramId: {
       type: String,
       required: true,
-      unique: true,
-      index: true,
+      unique: true, // Prevents duplicate records for the same user
     },
-    firstName: String,
-    lastName: String,
-    username: String,
-    photoUrl: String,
-    // Notification preferences
-    subscribedCategories: [
-      {
-        type: String, // e.g. ["Software / IT", "Sales & Marketing"]
-      },
-    ],
-    notificationsEnabled: {
-      type: Boolean,
-      default: true,
+    firstName: {
+      type: String,
+      required: true,
+    },
+    lastName: {
+      type: String,
+    },
+    username: {
+      type: String,
+    },
+    photoUrl: {
+      type: String,
+    },
+    authDate: {
+      type: Number,
     },
   },
   { timestamps: true }
 );
 
-export const User = mongoose.model("User", userSchema);
+export default mongoose.model("User", User);

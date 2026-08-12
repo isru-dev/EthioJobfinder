@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 
 const CATEGORIES = [
   "Software / IT",
@@ -18,12 +18,29 @@ export default function PreferencesModal({ user, onClose, onSave }) {
   );
   const [saving, setSaving] = useState(false);
 
+  // Close modal on Escape key press
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      if (e.key === "Escape") onClose();
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [onClose]);
+
   const toggleCategory = (category) => {
     setSelectedCategories((prev) =>
       prev.includes(category)
         ? prev.filter((c) => c !== category)
         : [...prev, category]
     );
+  };
+
+  const handleToggleAll = () => {
+    if (selectedCategories.length === CATEGORIES.length) {
+      setSelectedCategories([]);
+    } else {
+      setSelectedCategories([...CATEGORIES]);
+    }
   };
 
   const handleSave = async () => {
@@ -38,27 +55,33 @@ export default function PreferencesModal({ user, onClose, onSave }) {
   };
 
   return (
-    <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm flex items-center justify-center p-4 z-50">
-      <div className="bg-white rounded-2xl max-w-md w-full p-6 space-y-6 shadow-2xl border border-slate-100">
-        <div className="flex justify-between items-center border-b pb-4">
+    <div
+      onClick={onClose}
+      className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm flex items-center justify-center p-4 z-50 animate-fade-in"
+    >
+      <div
+        onClick={(e) => e.stopPropagation()} // Prevent backdrop click from closing when clicking inside
+        className="bg-white rounded-2xl max-w-md w-full p-6 space-y-6 shadow-2xl border border-slate-100"
+      >
+        <div className="flex justify-between items-center border-b border-slate-100 pb-4">
           <div>
             <h2 className="text-xl font-bold text-slate-900">
               Notification Preferences
             </h2>
             <p className="text-xs text-slate-500">
-              Logged in as @{user.username || user.first_name}
+              Logged in as @{user.username || user.first_name || user.firstName}
             </p>
           </div>
           <button
             onClick={onClose}
-            className="text-slate-400 hover:text-slate-600 font-bold text-lg"
+            className="text-slate-400 hover:text-slate-600 font-bold text-lg p-1"
           >
             ✕
           </button>
         </div>
 
         {/* Master Switch */}
-        <div className="flex items-center justify-between bg-slate-50 p-3 rounded-xl border border-slate-200">
+        <div className="flex items-center justify-between bg-slate-50 p-3.5 rounded-xl border border-slate-200">
           <span className="text-sm font-semibold text-slate-700">
             Enable Direct DM Alerts
           </span>
@@ -72,10 +95,22 @@ export default function PreferencesModal({ user, onClose, onSave }) {
 
         {/* Category Pickers */}
         <div className="space-y-2">
-          <label className="text-xs font-bold text-slate-500 uppercase tracking-wider">
-            Select Preferred Fields
-          </label>
-          <div className="grid grid-cols-1 gap-2 pt-1">
+          <div className="flex justify-between items-center">
+            <label className="text-xs font-bold text-slate-500 uppercase tracking-wider">
+              Select Preferred Fields
+            </label>
+            <button
+              type="button"
+              onClick={handleToggleAll}
+              className="text-xs text-indigo-600 font-semibold hover:underline"
+            >
+              {selectedCategories.length === CATEGORIES.length
+                ? "Deselect All"
+                : "Select All"}
+            </button>
+          </div>
+
+          <div className="grid grid-cols-1 gap-2 pt-1 max-h-60 overflow-y-auto pr-1">
             {CATEGORIES.map((cat) => {
               const isChecked = selectedCategories.includes(cat);
               return (

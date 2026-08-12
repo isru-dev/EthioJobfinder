@@ -1,4 +1,4 @@
-import { getJobTelegramUrl } from "../utils/telegram";
+import { getJobTelegramUrl } from "../../utils/telegram";
 
 export const JobCard = ({ job }) => {
   const telegramUrl = getJobTelegramUrl(job);
