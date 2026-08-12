@@ -1,15 +1,17 @@
 import { TelegramClient } from "telegram";
 import { StringSession } from "telegram/sessions/index.js";
 import { NewMessage } from "telegram/events/index.js";
+import dotenv from "dotenv";
+
 import { Job } from "../models/Job.js";
+import User from "../models/User.js";
 import { generateRawHash } from "../utils/hash.js";
 import { 
   parseJobWithMultiAIFallback, 
   isLikelyJobPost 
 } from "./parser.js";
-import dotenv from "dotenv";
-import User from '../models/User.js'
 import { sendTelegramJobAlert } from "../services/notifier.js";
+
 dotenv.config();
 
 const apiId = parseInt(process.env.TELEGRAM_API_ID, 10);
@@ -29,9 +31,9 @@ const chunkArray = (arr, size) =>
     arr.slice(i * size, i * size + size)
   );
 
-
-
-// Helper: Saves extracted jobs array safely to MongoDB & triggers user alerts
+/**
+ * Helper: Saves extracted jobs array safely to MongoDB & triggers user alerts.
+ */
 const saveJobsToDatabase = async ({
   parsedResult,
   rawText,
@@ -39,6 +41,7 @@ const saveJobsToDatabase = async ({
   channelUsername,
   messageId,
   date,
+  isBackfill = false, // Flag to prevent spamming notifications for old historical posts
 }) => {
   if (!parsedResult || !Array.isArray(parsedResult.jobs)) return 0;
 
@@ -80,22 +83,31 @@ const saveJobsToDatabase = async ({
       // ----------------------------------------------------
       // DISPATCH REAL-TIME ALERTS TO SUBSCRIBED USERS
       // ----------------------------------------------------
-      if (jobItem.category) {
+      // Send alerts ONLY if notifications are applicable and NOT during a historical backfill
+      if (!isBackfill && jobItem.category) {
         try {
-          // Find all users who enabled notifications and opted into this category
+          // Query for matching subscribers
           const matchingUsers = await User.find({
             notificationsEnabled: true,
             subscribedCategories: jobItem.category,
+            telegramId: { $exists: true, $ne: null },
           });
 
-          // Send message asynchronously (or run in parallel with Promise.allSettled)
-          Promise.allSettled(
-            matchingUsers.map((user) => sendTelegramJobAlert(user.telegramId, newJob))
-          ).catch((err) =>
-            console.error("Error sending user notifications:", err.message)
-          );
+          if (matchingUsers.length > 0) {
+            console.log(`📢 Alerting ${matchingUsers.length} user(s) for category: ${jobItem.category}`);
+
+            // Non-blocking parallel dispatch with settling
+            Promise.allSettled(
+              matchingUsers.map((user) => sendTelegramJobAlert(user.telegramId, newJob))
+            ).then((results) => {
+              const failed = results.filter((r) => r.status === "rejected");
+              if (failed.length > 0) {
+                console.warn(`⚠️ ${failed.length} direct message alerts failed to deliver.`);
+              }
+            });
+          }
         } catch (alertErr) {
-          console.error("Notification query failed:", alertErr.message);
+          console.error("❌ Notification query failed:", alertErr.message);
         }
       }
     }
@@ -134,7 +146,7 @@ const backfillPast7Days = async (client) => {
             // Run Multi-AI parsing
             const parsedResult = await parseJobWithMultiAIFallback(rawText);
 
-            // Save to MongoDB with postUrl & message ID
+            // Save to MongoDB (isBackfill = true disables instant push notifications)
             const count = await saveJobsToDatabase({
               parsedResult,
               rawText,
@@ -142,12 +154,13 @@ const backfillPast7Days = async (client) => {
               channelUsername,
               messageId: msg.id,
               date: msg.date,
+              isBackfill: true,
             });
             totalImported += count;
           })
         );
 
-        // Small 300ms pause between chunks to keep within API rate limits
+        // Small 300ms pause between chunks to respect API rate limits
         await new Promise((resolve) => setTimeout(resolve, 300));
       }
     } catch (err) {
@@ -155,7 +168,7 @@ const backfillPast7Days = async (client) => {
     }
   }
 
-  console.log(`✅ Backfill complete! Integrated ${totalImported} new jobs.`);
+  console.log(`✅ Backfill complete! Integrated ${totalImported} historical jobs.`);
 };
 
 export const initTelegramListener = async () => {
@@ -207,6 +220,7 @@ export const initTelegramListener = async () => {
           channelUsername,
           messageId: message.id,
           date: message.date,
+          isBackfill: false, // Triggers live push alerts to users!
         });
         console.log(`📩 New Live Job Parsed & Saved! Link: https://t.me/${channelUsername}/${message.id}`);
       } catch (err) {

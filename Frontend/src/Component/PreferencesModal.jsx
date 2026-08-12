@@ -9,7 +9,7 @@ const CATEGORIES = [
   { id: "General / Other", label: "General / Other", desc: "Miscellaneous fields" },
 ];
 
-export default function PreferencesModal({ user, onClose, onSave }) {
+export default function PreferencesModal({ user, onClose, onSave, botUsername = "YourJobBot" }) {
   const [selectedCategories, setSelectedCategories] = useState(
     user?.subscribedCategories || []
   );
@@ -56,7 +56,7 @@ export default function PreferencesModal({ user, onClose, onSave }) {
     try {
       await onSave({
         telegramId: user?.telegramId || user?.id,
-        categories: selectedCategories,
+        subscribedCategories: selectedCategories,
         notificationsEnabled,
       });
       onClose();
@@ -70,15 +70,15 @@ export default function PreferencesModal({ user, onClose, onSave }) {
   const isAllSelected = selectedCategories.length === CATEGORIES.length;
 
   return (
-    /* Outer Backdrop: Fully transparent background with full-screen centering */
+    /* Outer Backdrop: Transparent background with screen centering */
     <div
       onClick={onClose}
       className="fixed inset-0 min-h-screen z-50 flex items-center justify-center p-4 sm:p-6 overflow-y-auto animate-in fade-in duration-200"
     >
-      {/* Modal Box: Clean white floating card centered vertically */}
+      {/* Modal Box */}
       <div
         onClick={(e) => e.stopPropagation()}
-        className="bg-white rounded-3xl max-w-lg w-full p-6 sm:p-7 space-y-6 shadow-2xl border border-slate-200/80 my-auto transition-all transform"
+        className="bg-white rounded-3xl max-w-lg w-full p-6 sm:p-7 space-y-5 shadow-2xl border border-slate-200/80 my-auto transition-all transform"
       >
         {/* Header */}
         <div className="flex justify-between items-start border-b border-slate-100 pb-4">
@@ -112,6 +112,21 @@ export default function PreferencesModal({ user, onClose, onSave }) {
           </button>
         </div>
 
+        {/* Telegram Bot Start Direct Link Banner */}
+        <div className="bg-indigo-50/60 border border-indigo-100 p-3 rounded-2xl flex items-center justify-between text-xs text-indigo-950">
+          <span className="flex items-center gap-2 font-medium">
+            ✈️ Ensure you started our bot on Telegram
+          </span>
+          <a
+            href={`https://t.me/${botUsername}?start=alert_signup`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="px-2.5 py-1 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold rounded-lg text-[11px] transition-colors"
+          >
+            Open Bot
+          </a>
+        </div>
+
         {/* Master Switch Card */}
         <div className="flex items-center justify-between bg-slate-50/80 hover:bg-slate-50 p-4 rounded-2xl border border-slate-200/80 transition-all">
           <div className="space-y-0.5">
@@ -119,7 +134,7 @@ export default function PreferencesModal({ user, onClose, onSave }) {
               Direct Messaging Alerts
             </span>
             <span className="text-xs text-slate-500 block">
-              Receive instant updates directly via Telegram DM
+              Receive instant job alerts directly via Telegram DM
             </span>
           </div>
 
@@ -156,7 +171,7 @@ export default function PreferencesModal({ user, onClose, onSave }) {
             </button>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 max-h-60 overflow-y-auto pr-1">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 max-h-56 overflow-y-auto pr-1">
             {CATEGORIES.map((cat) => {
               const isChecked = selectedCategories.includes(cat.label);
               return (
