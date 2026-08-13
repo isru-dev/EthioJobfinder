@@ -1,13 +1,17 @@
 import TelegramLoginButton from "../Component/TelegramLoginButton";
 
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "";
+const buildApiUrl = (path) => `${API_BASE_URL}${path}`;
+
 export default function LoginSection({ onLoginSuccess }) {
   const handleTelegramAuth = (telegramUser) => {
+    
     authenticateWithBackend(telegramUser);
   };
 
   const authenticateWithBackend = async (userData) => {
     try {
-      const response = await fetch("/api/auth/telegram", {
+      const response = await fetch(buildApiUrl("/api/auth/telegram"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(userData),

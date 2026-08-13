@@ -2,13 +2,16 @@ import { useState, useCallback } from "react";
 import TelegramLoginButton from "./TelegramLoginButton";
 import PreferencesModal from "./PreferencesModal";
 
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "";
+const buildApiUrl = (path) => `${API_BASE_URL}${path}`;
+
 export default function Navbar({ user, setUser }) {
   const [showPreferences, setShowPreferences] = useState(false);
 
   const handleTelegramAuth = useCallback(
     async (telegramUser) => {
       try {
-        const res = await fetch(`/api/auth/telegram`, {
+        const res = await fetch(buildApiUrl("/api/auth/telegram"), {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(telegramUser),
@@ -31,7 +34,7 @@ export default function Navbar({ user, setUser }) {
 
   const handleSavePreferences = async (prefPayload) => {
     try {
-      const res = await fetch(`/api/user/preferences`, {
+      const res = await fetch(buildApiUrl("/api/user/preferences"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(prefPayload),
