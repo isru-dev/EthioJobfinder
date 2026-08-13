@@ -6,6 +6,8 @@ node_modules/
 Backend/node_modules
 vendor/
 .pnp/
+.env
+Backend/.env
 
 dist/
 build/
