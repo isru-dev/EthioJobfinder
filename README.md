@@ -2,7 +2,7 @@
 
 A real-time job discovery platform that monitors and categorizes vacancy postings from multiple Ethiopian Telegram job channels, delivering instant Telegram DM alerts to users based on their preferred job sectors — including IT, Finance, Healthcare, Sales, and more.
 
-**Live site:** [(https://ethio-jobfinder.vercel.app)
+**Live site:**-> https://ethio-jobfinder.vercel.app
 
 ---
 
