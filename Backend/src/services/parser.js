@@ -119,19 +119,35 @@ If the post is in Amharic, TRANSLATE title, company, category, and tags into Eng
 `;
 
 /**
- * Lightweight local regex fallback if all AI APIs fail or are missing.
+ * Local regex fallback when all AI APIs fail.
+ * Matches contact details AND auto-categorizes using keyword matching.
  */
 export const parseRawJobText = (rawText) => {
   const emailMatch = rawText.match(/[\w.-]+@[\w.-]+\.\w+/);
   const phoneMatch = rawText.match(
-    /(?:\+251|0)\s?\d{2}\s?\d{3}\s?\d{4}|\b09\d{8}\b/,
+    /(?:\+251|0)\s?\d{2}\s?\d{3}\s?\d{4}|\b09\d{8}\b/
   );
 
+  const lowerText = rawText.toLowerCase();
+  let assignedCategory = "General / Other";
+
+  // Check raw text against CATEGORY_MAP keywords
+  for (const [category, keywords] of Object.entries(CATEGORY_MAP)) {
+    if (keywords.some((kw) => lowerText.includes(kw.toLowerCase()))) {
+      assignedCategory = category;
+      break;
+    }
+  }
+
+  // Extract a basic title from the first line or fallback to default
+  const lines = rawText.split('\n').map(l => l.trim()).filter(Boolean);
+  const detectedTitle = lines.length > 0 && lines[0].length < 60 ? lines[0] : "Channel Vacancy";
+
   return {
-    title: "Channel Vacancy",
+    title: detectedTitle,
     company: "Not Specified",
-    category: "General / Other",
-    tags: ["Telegram", "Job"],
+    category: assignedCategory,
+    tags: [assignedCategory.split(" ")[0], "Telegram"],
     contactEmail: emailMatch ? emailMatch[0] : null,
     contactPhone: phoneMatch ? phoneMatch[0] : null,
   };
@@ -177,10 +193,11 @@ export const isLikelyJobPost = (text) => {
 /**
  * Multi-Tier AI Fallback Engine:
  * Tier 1: Groq (Llama 3.1 8B Instant)
- * Tier 2: Cerebras (Llama 3.3 70B)
- * Tier 3: Google Gemini (Gemini 1.5 Flash)
- * Tier 4: OpenRouter (Free Tier Gateway)
- * Tier 5: Local Regex Fallback
+ * Tier 2: NVIDIA NIM (Llama 3.3 70B via OpenAI SDK)
+ * Tier 3: Cerebras (Gemma 4 31B)
+ * Tier 4: Google Gemini (Gemini 2.0 Flash)
+ * Tier 5: OpenRouter (Free Tier Gateway)
+ * Tier 6: Local Regex Fallback
  */
 export const parseJobWithMultiAIFallback = async (rawText) => {
   // ----------------------------------------------------
@@ -202,18 +219,44 @@ export const parseJobWithMultiAIFallback = async (rawText) => {
       return JSON.parse(res.choices[0].message.content);
     } catch (err) {
       console.warn(
-        "⚠️ [Tier 1] Groq limit hit. Triggering Cerebras fallback...",
-        err.message,
+        "⚠️ [Tier 1] Groq limit hit. Triggering NVIDIA fallback...",
+        err.message
       );
     }
   }
 
   // ----------------------------------------------------
-  // Tier 2: Cerebras
+  // Tier 2: NVIDIA NIM (using OpenAI SDK)
   // ----------------------------------------------------
-  if (
-    process.env.CEREBRAS_API_KEY
-  ) {
+  if (process.env.NVIDIA_API_KEY) {
+    try {
+      console.log("NVIDIA ....");
+      const nvidia = new OpenAI({
+        apiKey: process.env.NVIDIA_API_KEY,
+        baseURL: "https://integrate.api.nvidia.com/v1",
+      });
+      const res = await nvidia.chat.completions.create({
+        model: "meta/llama-3.3-70b-instruct",
+        temperature: 0.1,
+        response_format: { type: "json_object" },
+        messages: [
+          { role: "system", content: SYSTEM_PROMPT },
+          { role: "user", content: rawText },
+        ],
+      });
+      return JSON.parse(res.choices[0].message.content);
+    } catch (err) {
+      console.warn(
+        "⚠️ [Tier 2] NVIDIA failed. Triggering Cerebras fallback...",
+        err.message
+      );
+    }
+  }
+
+  // ----------------------------------------------------
+  // Tier 3: Cerebras
+  // ----------------------------------------------------
+  if (process.env.CEREBRAS_API_KEY) {
     try {
       console.log("Cerebras ....");
       const cerebras = new OpenAI({
@@ -223,7 +266,7 @@ export const parseJobWithMultiAIFallback = async (rawText) => {
       const res = await cerebras.chat.completions.create({
         model: "gemma-4-31b",
         temperature: 0.1,
-        response_format: { type: "json_object" }, 
+        response_format: { type: "json_object" },
         messages: [
           { role: "system", content: SYSTEM_PROMPT },
           { role: "user", content: rawText },
@@ -232,33 +275,37 @@ export const parseJobWithMultiAIFallback = async (rawText) => {
       return JSON.parse(res.choices[0].message.content);
     } catch (err) {
       console.warn(
-        "⚠️ [Tier 2] Cerebras failed. Triggering Gemini fallback...",
-        err.message,
+        "⚠️ [Tier 3] Cerebras failed. Triggering Gemini fallback...",
+        err.message
       );
     }
   }
 
   // ----------------------------------------------------
-  // Tier 3: Google Gemini
+  // Tier 4: Google Gemini
   // ----------------------------------------------------
   if (process.env.GEMINI_API_KEY) {
     try {
       console.log("Gemini ....");
       const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
       const model = genAI.getGenerativeModel({
-        model: "gemini-2.0-flash", // Unpdated active model ID
+        model: "gemini-2.0-flash",
         generationConfig: { responseMimeType: "application/json" },
       });
-      const res = await model.generateContent(`${SYSTEM_PROMPT}\n\nJob Text:\n${rawText}`);
+      const res = await model.generateContent(
+        `${SYSTEM_PROMPT}\n\nJob Text:\n${rawText}`
+      );
       return JSON.parse(res.response.text());
     } catch (err) {
-      console.warn("⚠️ [Tier 3] Gemini failed. Triggering OpenRouter fallback...", err.message);
+      console.warn(
+        "⚠️ [Tier 4] Gemini failed. Triggering OpenRouter fallback...",
+        err.message
+      );
     }
   }
 
-  
- // ----------------------------------------------------
-  // Tier 4: OpenRouter
+  // ----------------------------------------------------
+  // Tier 5: OpenRouter
   // ----------------------------------------------------
   if (process.env.OPENROUTER_API_KEY) {
     try {
@@ -281,13 +328,15 @@ export const parseJobWithMultiAIFallback = async (rawText) => {
       });
       return JSON.parse(res.choices[0].message.content);
     } catch (err) {
-      console.warn("⚠️ [Tier 4] OpenRouter failed. Falling back to local Regex...", err.message);
+      console.warn(
+        "⚠️ [Tier 5] OpenRouter failed. Falling back to local Regex...",
+        err.message
+      );
     }
   }
 
-
   // ----------------------------------------------------
-  // Tier 5: Local Regex Fallback
+  // Tier 6: Local Regex Fallback
   // ----------------------------------------------------
   console.log("ℹ️ All AI APIs exhausted. Using local Regex parser.");
   return { jobs: [parseRawJobText(rawText)] };

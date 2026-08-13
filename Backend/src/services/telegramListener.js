@@ -1,24 +1,27 @@
 import { TelegramClient } from "telegram";
+import dotenv from "dotenv";
+
+dotenv.config();
+
 import { StringSession } from "telegram/sessions/index.js";
 import { NewMessage } from "telegram/events/index.js";
-import dotenv from "dotenv";
 
 import { Job } from "../models/Job.js";
 import User from "../models/User.js";
 import { generateRawHash } from "../utils/hash.js";
+import { sendJobAlertToUser } from "../bot/telegramBot.js"; // 👈 Added missing export import!
 import { 
   parseJobWithMultiAIFallback, 
   isLikelyJobPost 
 } from "./parser.js";
-import { sendTelegramJobAlert } from "../services/notifier.js";
 
-dotenv.config();
 
 const apiId = parseInt(process.env.TELEGRAM_API_ID, 10);
 const apiHash = process.env.TELEGRAM_API_HASH;
 const sessionString = process.env.TELEGRAM_SESSION_STRING;
 
 const MONITORED_CHANNELS = [
+  "jobethaddis",
   "effoyjobs",
   "freelance_ethio",
   "hahujobsforfreshgraduates",
@@ -83,7 +86,6 @@ const saveJobsToDatabase = async ({
       // ----------------------------------------------------
       // DISPATCH REAL-TIME ALERTS TO SUBSCRIBED USERS
       // ----------------------------------------------------
-      // Send alerts ONLY if notifications are applicable and NOT during a historical backfill
       if (!isBackfill && jobItem.category) {
         try {
           // Query for matching subscribers
@@ -94,17 +96,19 @@ const saveJobsToDatabase = async ({
           });
 
           if (matchingUsers.length > 0) {
-            console.log(`📢 Alerting ${matchingUsers.length} user(s) for category: ${jobItem.category}`);
+            console.log(`📢 Alerting ${matchingUsers.length} user(s) for category: "${jobItem.category}"`);
 
             // Non-blocking parallel dispatch with settling
             Promise.allSettled(
-              matchingUsers.map((user) => sendTelegramJobAlert(user.telegramId, newJob))
+              matchingUsers.map((user) => sendJobAlertToUser(user.telegramId, newJob))
             ).then((results) => {
               const failed = results.filter((r) => r.status === "rejected");
-              if (failed.length > 0) {
+              if (failed.length > 0) { // 👈 Fixed typo: leangth -> length
                 console.warn(`⚠️ ${failed.length} direct message alerts failed to deliver.`);
               }
             });
+          } else {
+            console.log(`ℹ️ No subscribed users found for category: "${jobItem.category}"`);
           }
         } catch (alertErr) {
           console.error("❌ Notification query failed:", alertErr.message);

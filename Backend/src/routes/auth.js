@@ -37,19 +37,40 @@ router.post("/telegram", async (req, res) => {
       return res.status(401).json({ error: "Invalid signature. Auth failed!" });
     }
 
-    // 2. Save or Update in MongoDB
-    const user = await User.findOneAndUpdate(
-      { telegramId: String(telegramData.id) },
-      {
-        telegramId: String(telegramData.id),
+    const telegramIdStr = String(telegramData.id);
+
+    // 2. Check if user already exists
+    let user = await User.findOne({ telegramId: telegramIdStr });
+
+    if (!user) {
+      // Create new user with DEFAULT categories enabled so they receive alerts!
+      user = await User.create({
+        telegramId: telegramIdStr,
         firstName: telegramData.first_name,
         lastName: telegramData.last_name || "",
         username: telegramData.username || "",
         photoUrl: telegramData.photo_url || "",
         authDate: telegramData.auth_date,
-      },
-      { new: true, upsert: true } // Creates the user if they don't exist
-    );
+        notificationsEnabled: true,
+        // Default to all or primary categories so matching works immediately
+        subscribedCategories: [
+          "Software / IT",
+          "Video / Graphics",
+          "Finance & Accounting",
+          "Sales & Marketing",
+          "Healthcare",
+          "General / Other"
+        ],
+      });
+    } else {
+      // Update basic details without overriding their existing categories
+      user.firstName = telegramData.first_name;
+      user.lastName = telegramData.last_name || "";
+      user.username = telegramData.username || "";
+      user.photoUrl = telegramData.photo_url || "";
+      user.authDate = telegramData.auth_date;
+      await user.save();
+    }
 
     // 3. Return saved user data to frontend
     return res.status(200).json({

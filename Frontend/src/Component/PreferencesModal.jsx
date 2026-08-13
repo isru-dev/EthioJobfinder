@@ -9,7 +9,7 @@ const CATEGORIES = [
   { id: "General / Other", label: "General / Other", desc: "Miscellaneous fields" },
 ];
 
-export default function PreferencesModal({ user, onClose, onSave, botUsername = "YourJobBot" }) {
+export default function PreferencesModal({ user, onClose, onSave, botUsername = "EJobExplore_bot" }) {
   const [selectedCategories, setSelectedCategories] = useState(
     user?.subscribedCategories || []
   );
@@ -69,6 +69,10 @@ export default function PreferencesModal({ user, onClose, onSave, botUsername = 
 
   const isAllSelected = selectedCategories.length === CATEGORIES.length;
 
+  // The Telegram numeric ID that must be passed as the /start deep-link payload
+  // so the bot's /start handler can link this chat back to the right user record.
+  const telegramIdForDeepLink = user?.telegramId || user?.id;
+
   return (
     /* Outer Backdrop: Transparent background with screen centering */
     <div
@@ -118,7 +122,7 @@ export default function PreferencesModal({ user, onClose, onSave, botUsername = 
             ✈️ Ensure you started our bot on Telegram
           </span>
           <a
-            href={`https://t.me/${botUsername}?start=alert_signup`}
+            href={`https://t.me/${botUsername}?start=${telegramIdForDeepLink}`}
             target="_blank"
             rel="noopener noreferrer"
             className="px-2.5 py-1 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold rounded-lg text-[11px] transition-colors"

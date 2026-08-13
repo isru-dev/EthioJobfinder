@@ -10,14 +10,14 @@ const userSchema = new mongoose.Schema(
     photoUrl: String,
     authDate: Number,
     // Add these two fields if missing:
-    subscribedCategories: {
-      type: [String],
-      default: [],
-    },
-    notificationsEnabled: {
-      type: Boolean,
-      default: true,
-    },
+      subscribedCategories: {
+        type: [String],
+        default: [],
+      },
+      notificationsEnabled: {
+        type: Boolean,
+        default: true,
+      },
   },
   { timestamps: true }
 );
