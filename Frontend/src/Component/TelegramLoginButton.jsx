@@ -1,7 +1,7 @@
 // TelegramLoginButton.jsx
 import { useEffect, useRef } from "react";
 
-export default function TelegramLoginButton({ botName = "EthioJobExplorer_bot", onAuth }) {
+export default function TelegramLoginButton({ botName = "EJobExplore_bot", onAuth }) {
   const containerRef = useRef(null);
   const onAuthRef = useRef(onAuth);
 
