@@ -26,7 +26,6 @@ export default function TelegramLoginButton({ botName = "EJobExplore_bot", onAut
     script.setAttribute("data-radius", "10");
     script.setAttribute("data-onauth", "onTelegramAuth(user)");
     script.setAttribute("data-request-access", "write");
-    script.async = true;
 
     if (containerRef.current) {
       containerRef.current.innerHTML = "";
@@ -35,6 +34,9 @@ export default function TelegramLoginButton({ botName = "EJobExplore_bot", onAut
 
     return () => {
       delete window.onTelegramAuth;
+      if (containerRef.current) {
+        containerRef.current.innerHTML = "";
+      }
     };
   }, [botName]); // Only re-run if botName changes!
 

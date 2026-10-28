@@ -31,6 +31,7 @@ export default function LoginSection({ onLoginSuccess }) {
       }
     } catch (err) {
       console.error("Authentication error:", err);
+      alert("Network error during authentication. Please try again.");
     }
   };
 

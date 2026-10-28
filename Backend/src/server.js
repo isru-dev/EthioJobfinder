@@ -13,9 +13,13 @@ import userRoutes from './routes/user.js';
 const app = express();
 
 const allowedOrigins = [
+      "https://influence-investors-indexed-people.trycloudflare.com",
+        "http://localhost:5173", // Vite default dev port
   "https://ethio-jobfinder.vercel.app",
   "http://localhost:3000", // keep for local frontend dev
+  "http://localhost:5174", // Vite alternate dev port
 ];
+
 
 app.use(cors({
   origin: function (origin, callback) {

@@ -32,6 +32,7 @@ export default function JobFeed() {
     const saved = localStorage.getItem("ethio_job_user");
     return saved ? JSON.parse(saved) : null;
   });
+  
 
   const [jobs, setJobs] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -91,7 +92,7 @@ export default function JobFeed() {
         {/* Header */}
         <header className="text-center space-y-3">
           <h1 className="text-4xl font-extrabold text-slate-900 tracking-tight">
-            Ethio Job Explorer 💼
+            Ethio Job Explorer 
           </h1>
           <p className="text-slate-600 text-lg">
             Real-time aggregated vacancies powered by live Telegram streams
