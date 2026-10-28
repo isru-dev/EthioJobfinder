@@ -1,4 +1,3 @@
-
 import { useState, useCallback } from "react";
 import {
   Settings2,
@@ -36,10 +35,7 @@ export default function Navbar({ user, setUser, dark }) {
         }
 
         setUser(data.user);
-        localStorage.setItem(
-          "ethio_job_user",
-          JSON.stringify(data.user)
-        );
+        localStorage.setItem("ethio_job_user", JSON.stringify(data.user));
 
         setShowPreferences(true);
         setMobileMenuOpen(false);
@@ -67,10 +63,7 @@ export default function Navbar({ user, setUser, dark }) {
       }
 
       setUser(data.user);
-      localStorage.setItem(
-        "ethio_job_user",
-        JSON.stringify(data.user)
-      );
+      localStorage.setItem("ethio_job_user", JSON.stringify(data.user));
 
       setShowPreferences(false);
     } catch (err) {
@@ -95,6 +88,10 @@ export default function Navbar({ user, setUser, dark }) {
     setShowPreferences(true);
     setMobileMenuOpen(false);
   };
+
+  const displayName =
+    user?.first_name || user?.firstName || user?.username || "User";
+  const photo = user?.photo_url || user?.photoUrl;
 
   return (
     <>
@@ -138,10 +135,21 @@ export default function Navbar({ user, setUser, dark }) {
             </span>
           </a>
 
-          {/* Desktop actions */}
-          <div className="hidden items-center gap-3 sm:flex">
-            {user ? (
-              <>
+          {/* Right side.
+              The Telegram widget is rendered ONCE for every screen size.
+              (Two copies = two scripts fighting over window.onTelegramAuth,
+              which is why the button was blank on mobile.) */}
+          <div className="flex shrink-0 items-center gap-2 sm:gap-3">
+            {!user && (
+              <TelegramLoginButton
+                botName="EJobExplore_bot"
+                onAuth={handleTelegramAuth}
+              />
+            )}
+
+            {/* Signed-in actions: desktop only */}
+            {user && (
+              <div className="hidden items-center gap-3 sm:flex">
                 <button
                   type="button"
                   onClick={openPreferences}
@@ -160,9 +168,9 @@ export default function Navbar({ user, setUser, dark }) {
                     dark ? "bg-slate-900" : "bg-slate-50"
                   }`}
                 >
-                  {user.photo_url || user.photoUrl ? (
+                  {photo ? (
                     <img
-                      src={user.photo_url || user.photoUrl}
+                      src={photo}
                       alt=""
                       className="h-8 w-8 rounded-full object-cover"
                     />
@@ -178,10 +186,7 @@ export default function Navbar({ user, setUser, dark }) {
                         dark ? "text-slate-200" : "text-slate-800"
                       }`}
                     >
-                      {user.first_name ||
-                        user.firstName ||
-                        user.username ||
-                        "User"}
+                      {displayName}
                     </p>
 
                     <p
@@ -206,44 +211,31 @@ export default function Navbar({ user, setUser, dark }) {
                   <LogOut size={17} />
                   <span>Log out</span>
                 </button>
-              </>
-            ) : (
-              <TelegramLoginButton
-                botName="EJobExplore_bot"
-                onAuth={handleTelegramAuth}
-              />
-            )}
-          </div>
-
-          {/* Mobile actions: login stays visible */}
-          <div className="flex shrink-0 items-center gap-2 sm:hidden">
-            {!user && (
-              <TelegramLoginButton
-                botName="EJobExplore_bot"
-                onAuth={handleTelegramAuth}
-              />
+              </div>
             )}
 
-            <button
-              type="button"
-              onClick={() =>
-                setMobileMenuOpen((open) => !open)
-              }
-              className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border transition ${
-                dark
-                  ? "border-slate-700 text-slate-300 hover:bg-slate-900"
-                  : "border-slate-200 text-slate-700 hover:bg-slate-50"
-              }`}
-              aria-label={mobileMenuOpen ? "Close menu" : "Open menu"}
-              aria-expanded={mobileMenuOpen}
-            >
-              {mobileMenuOpen ? <X size={21} /> : <Menu size={21} />}
-            </button>
+            {/* Hamburger: mobile only, and only when signed in
+                (the mobile menu only contains signed-in items) */}
+            {user && (
+              <button
+                type="button"
+                onClick={() => setMobileMenuOpen((open) => !open)}
+                className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border transition sm:hidden ${
+                  dark
+                    ? "border-slate-700 text-slate-300 hover:bg-slate-900"
+                    : "border-slate-200 text-slate-700 hover:bg-slate-50"
+                }`}
+                aria-label={mobileMenuOpen ? "Close menu" : "Open menu"}
+                aria-expanded={mobileMenuOpen}
+              >
+                {mobileMenuOpen ? <X size={21} /> : <Menu size={21} />}
+              </button>
+            )}
           </div>
         </nav>
 
-        {/* Mobile menu */}
-        {mobileMenuOpen && (
+        {/* Mobile menu (signed-in users only) */}
+        {mobileMenuOpen && user && (
           <div
             className={`border-t px-4 py-4 sm:hidden ${
               dark
@@ -251,82 +243,69 @@ export default function Navbar({ user, setUser, dark }) {
                 : "border-slate-100 bg-white"
             }`}
           >
-            {user ? (
-              <div className="space-y-3">
-                <div
-                  className={`flex items-center gap-3 rounded-xl p-3 ${
-                    dark ? "bg-slate-900" : "bg-slate-50"
-                  }`}
-                >
-                  {user.photo_url || user.photoUrl ? (
-                    <img
-                      src={user.photo_url || user.photoUrl}
-                      alt=""
-                      className="h-10 w-10 rounded-full object-cover"
-                    />
-                  ) : (
-                    <span className="flex h-10 w-10 items-center justify-center rounded-full bg-indigo-100 text-indigo-700">
-                      <UserRound size={19} />
-                    </span>
-                  )}
-
-                  <div className="min-w-0">
-                    <p
-                      className={`truncate text-sm font-semibold ${
-                        dark ? "text-slate-100" : "text-slate-900"
-                      }`}
-                    >
-                      {user.first_name ||
-                        user.firstName ||
-                        user.username ||
-                        "User"}
-                    </p>
-
-                    <p
-                      className={`text-xs ${
-                        dark ? "text-slate-400" : "text-slate-500"
-                      }`}
-                    >
-                      Signed in
-                    </p>
-                  </div>
-                </div>
-
-                <button
-                  type="button"
-                  onClick={openPreferences}
-                  className={`flex w-full items-center gap-3 rounded-xl px-3 py-3 text-sm font-medium transition ${
-                    dark
-                      ? "text-slate-300 hover:bg-indigo-950 hover:text-indigo-300"
-                      : "text-slate-700 hover:bg-indigo-50 hover:text-indigo-700"
-                  }`}
-                >
-                  <Settings2 size={18} />
-                  Alert preferences
-                </button>
-
-                <button
-                  type="button"
-                  onClick={handleLogout}
-                  className={`flex w-full items-center gap-3 rounded-xl px-3 py-3 text-sm font-medium transition ${
-                    dark
-                      ? "text-slate-400 hover:bg-red-950 hover:text-red-300"
-                      : "text-slate-600 hover:bg-red-50 hover:text-red-600"
-                  }`}
-                >
-                  <LogOut size={18} />
-                  Log out
-                </button>
-              </div>
-            ) : (
-              <p
-                className={`py-2 text-center text-sm ${
-                  dark ? "text-slate-400" : "text-slate-500"
+            <div className="space-y-3">
+              <div
+                className={`flex items-center gap-3 rounded-xl p-3 ${
+                  dark ? "bg-slate-900" : "bg-slate-50"
                 }`}
               >
-                Use the Login with Telegram button above to sign in.
-              </p>
-            )}
+                {photo ? (
+                  <img
+                    src={photo}
+                    alt=""
+                    className="h-10 w-10 rounded-full object-cover"
+                  />
+                ) : (
+                  <span className="flex h-10 w-10 items-center justify-center rounded-full bg-indigo-100 text-indigo-700">
+                    <UserRound size={19} />
+                  </span>
+                )}
+
+                <div className="min-w-0">
+                  <p
+                    className={`truncate text-sm font-semibold ${
+                      dark ? "text-slate-100" : "text-slate-900"
+                    }`}
+                  >
+                    {displayName}
+                  </p>
+
+                  <p
+                    className={`text-xs ${
+                      dark ? "text-slate-400" : "text-slate-500"
+                    }`}
+                  >
+                    Signed in
+                  </p>
+                </div>
+              </div>
+
+              <button
+                type="button"
+                onClick={openPreferences}
+                className={`flex w-full items-center gap-3 rounded-xl px-3 py-3 text-sm font-medium transition ${
+                  dark
+                    ? "text-slate-300 hover:bg-indigo-950 hover:text-indigo-300"
+                    : "text-slate-700 hover:bg-indigo-50 hover:text-indigo-700"
+                }`}
+              >
+                <Settings2 size={18} />
+                Alert preferences
+              </button>
+
+              <button
+                type="button"
+                onClick={handleLogout}
+                className={`flex w-full items-center gap-3 rounded-xl px-3 py-3 text-sm font-medium transition ${
+                  dark
+                    ? "text-slate-400 hover:bg-red-950 hover:text-red-300"
+                    : "text-slate-600 hover:bg-red-50 hover:text-red-600"
+                }`}
+              >
+                <LogOut size={18} />
+                Log out
+              </button>
+            </div>
           </div>
         )}
       </header>
