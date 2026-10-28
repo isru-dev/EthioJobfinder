@@ -6,7 +6,7 @@ import {
   Menu,
   X,
   UserRound,
-  Search ,
+  Search,
 } from "lucide-react";
 
 import TelegramLoginButton from "./TelegramLoginButton";
@@ -40,7 +40,9 @@ export default function Navbar({ user, setUser, dark }) {
           "ethio_job_user",
           JSON.stringify(data.user)
         );
+
         setShowPreferences(true);
+        setMobileMenuOpen(false);
       } catch (err) {
         console.error("Auth error:", err);
         alert("Unable to connect to the server. Please try again.");
@@ -69,6 +71,7 @@ export default function Navbar({ user, setUser, dark }) {
         "ethio_job_user",
         JSON.stringify(data.user)
       );
+
       setShowPreferences(false);
     } catch (err) {
       console.error("Failed to save preferences:", err);
@@ -103,7 +106,7 @@ export default function Navbar({ user, setUser, dark }) {
         }`}
       >
         <nav
-          className="mx-auto flex max-w-7xl items-center justify-between px-4 py-3 sm:px-6 lg:px-8"
+          className="mx-auto flex max-w-7xl items-center justify-between gap-3 px-4 py-3 sm:px-6 lg:px-8"
           aria-label="Main navigation"
         >
           {/* Brand */}
@@ -117,10 +120,19 @@ export default function Navbar({ user, setUser, dark }) {
             </span>
 
             <span className="min-w-0">
-              <span className={`block truncate text-base font-bold tracking-tight sm:text-lg ${dark ? "text-slate-100" : "text-slate-900"}`}>
+              <span
+                className={`block truncate text-base font-bold tracking-tight sm:text-lg ${
+                  dark ? "text-slate-100" : "text-slate-900"
+                }`}
+              >
                 Ethio Job Explorer
               </span>
-              <span className={`hidden text-xs font-medium sm:block ${dark ? "text-slate-400" : "text-slate-500"}`}>
+
+              <span
+                className={`hidden text-xs font-medium sm:block ${
+                  dark ? "text-slate-400" : "text-slate-500"
+                }`}
+              >
                 Discover your next opportunity
               </span>
             </span>
@@ -143,7 +155,11 @@ export default function Navbar({ user, setUser, dark }) {
                   Preferences
                 </button>
 
-                <div className={`flex items-center gap-2.5 rounded-xl px-3 py-2 ${dark ? "bg-slate-900" : "bg-slate-50"}`}>
+                <div
+                  className={`flex items-center gap-2.5 rounded-xl px-3 py-2 ${
+                    dark ? "bg-slate-900" : "bg-slate-50"
+                  }`}
+                >
                   {user.photo_url || user.photoUrl ? (
                     <img
                       src={user.photo_url || user.photoUrl}
@@ -157,13 +173,22 @@ export default function Navbar({ user, setUser, dark }) {
                   )}
 
                   <div className="max-w-32">
-                    <p className={`truncate text-sm font-semibold ${dark ? "text-slate-200" : "text-slate-800"}`}>
+                    <p
+                      className={`truncate text-sm font-semibold ${
+                        dark ? "text-slate-200" : "text-slate-800"
+                      }`}
+                    >
                       {user.first_name ||
                         user.firstName ||
                         user.username ||
                         "User"}
                     </p>
-                    <p className={`text-xs ${dark ? "text-slate-400" : "text-slate-500"}`}>
+
+                    <p
+                      className={`text-xs ${
+                        dark ? "text-slate-400" : "text-slate-500"
+                      }`}
+                    >
                       Account
                     </p>
                   </div>
@@ -190,30 +215,49 @@ export default function Navbar({ user, setUser, dark }) {
             )}
           </div>
 
-          {/* Mobile menu button */}
-          <button
-            type="button"
-            onClick={() => setMobileMenuOpen((open) => !open)}
-            className={`flex h-10 w-10 items-center justify-center rounded-xl border transition sm:hidden ${
-              dark
-                ? "border-slate-700 text-slate-300 hover:bg-slate-900"
-                : "border-slate-200 text-slate-700 hover:bg-slate-50"
-            }`}
-            aria-label={mobileMenuOpen ? "Close menu" : "Open menu"}
-            aria-expanded={mobileMenuOpen}
-          >
-            {mobileMenuOpen ? <X size={21} /> : <Menu size={21} />}
-          </button>
+          {/* Mobile actions: login stays visible */}
+          <div className="flex shrink-0 items-center gap-2 sm:hidden">
+            {!user && (
+              <TelegramLoginButton
+                botName="EJobExplore_bot"
+                onAuth={handleTelegramAuth}
+              />
+            )}
+
+            <button
+              type="button"
+              onClick={() =>
+                setMobileMenuOpen((open) => !open)
+              }
+              className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border transition ${
+                dark
+                  ? "border-slate-700 text-slate-300 hover:bg-slate-900"
+                  : "border-slate-200 text-slate-700 hover:bg-slate-50"
+              }`}
+              aria-label={mobileMenuOpen ? "Close menu" : "Open menu"}
+              aria-expanded={mobileMenuOpen}
+            >
+              {mobileMenuOpen ? <X size={21} /> : <Menu size={21} />}
+            </button>
+          </div>
         </nav>
 
         {/* Mobile menu */}
         {mobileMenuOpen && (
-          <div className={`border-t px-4 py-4 sm:hidden ${
-            dark ? "border-slate-800 bg-slate-950" : "border-slate-100 bg-white"
-          }`}>
+          <div
+            className={`border-t px-4 py-4 sm:hidden ${
+              dark
+                ? "border-slate-800 bg-slate-950"
+                : "border-slate-100 bg-white"
+            }`}
+          >
             {user ? (
               <div className="space-y-3">
-                <div className={`flex items-center gap-3 rounded-xl p-3 ${dark ? "bg-slate-900" : "bg-slate-50"}`}>
+                <div
+                  className={`flex items-center gap-3 rounded-xl p-3 ${
+                    dark ? "bg-slate-900" : "bg-slate-50"
+                  }`}
+                >
                   {user.photo_url || user.photoUrl ? (
                     <img
                       src={user.photo_url || user.photoUrl}
@@ -227,13 +271,22 @@ export default function Navbar({ user, setUser, dark }) {
                   )}
 
                   <div className="min-w-0">
-                    <p className={`truncate text-sm font-semibold ${dark ? "text-slate-100" : "text-slate-900"}`}>
+                    <p
+                      className={`truncate text-sm font-semibold ${
+                        dark ? "text-slate-100" : "text-slate-900"
+                      }`}
+                    >
                       {user.first_name ||
                         user.firstName ||
                         user.username ||
                         "User"}
                     </p>
-                    <p className={`text-xs ${dark ? "text-slate-400" : "text-slate-500"}`}>
+
+                    <p
+                      className={`text-xs ${
+                        dark ? "text-slate-400" : "text-slate-500"
+                      }`}
+                    >
                       Signed in
                     </p>
                   </div>
@@ -266,17 +319,19 @@ export default function Navbar({ user, setUser, dark }) {
                 </button>
               </div>
             ) : (
-              <div className="flex justify-center py-2">
-                <TelegramLoginButton
-                  botName="EJobExplore_bot"
-                  onAuth={handleTelegramAuth}
-                />
-              </div>
+              <p
+                className={`py-2 text-center text-sm ${
+                  dark ? "text-slate-400" : "text-slate-500"
+                }`}
+              >
+                Use the Login with Telegram button above to sign in.
+              </p>
             )}
           </div>
         )}
       </header>
 
+      {/* Preferences modal */}
       {showPreferences && user && (
         <PreferencesModal
           user={user}
