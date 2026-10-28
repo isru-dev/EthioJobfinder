@@ -11,7 +11,6 @@ import auth from './routes/auth.js';
 import userRoutes from './routes/user.js';
 
 const app = express();
-
 const allowedOrigins = [
       "https://racial-soft-starring-outstanding.trycloudflare.com",
         "http://localhost:5173", // Vite default dev port
