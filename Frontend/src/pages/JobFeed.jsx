@@ -56,7 +56,7 @@ export default function JobFeed() {
       try {
         const res = await fetchJobs({
           page,
-          limit: 9,
+          limit: 15,
           search,
           category: selectedCategory,
         });

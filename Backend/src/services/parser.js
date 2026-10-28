@@ -1,8 +1,16 @@
 import OpenAI from "openai";
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import dotenv from "dotenv";
+import { fileURLToPath } from "node:url";
 
-dotenv.config();
+dotenv.config({ path: fileURLToPath(new URL("../../.env", import.meta.url)) });
+
+const GROQ_API_KEY = process.env.GROQ_API_KEY;
+const NVIDIA_API_KEY = process.env.NVIDIA_API_KEY;
+const CEREBRAS_API_KEY = process.env.CEREBRAS_API_KEY;
+const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
+const OPENROUTER_API_KEY = process.env.OPENROUTER_API_KEY;
+
 /* =====================================================================
  * HOW THIS FILE WORKS
  *
@@ -339,9 +347,9 @@ const SHORT_PROMPT = `Extract ONE job from the text. Reply with JSON only:
 If the text is Amharic, translate title, company and tags into English.`;
 
 const openAICompat =
-  ({ baseURL, keyEnv, modelEnv, defaultModel, json = true, headers }) =>
+  ({ baseURL, apiKey, modelEnv, defaultModel, json = true, headers }) =>
   async (text) => {
-    const client = new OpenAI({ apiKey: process.env[keyEnv], baseURL, maxRetries: 0, defaultHeaders: headers });
+    const client = new OpenAI({ apiKey, baseURL, maxRetries: 0, defaultHeaders: headers });
     const res = await client.chat.completions.create({
       model: process.env[modelEnv] || defaultModel,
       temperature: 0.1,
@@ -355,30 +363,29 @@ const openAICompat =
   };
 
 const callGemini = async (text) => {
-  const model = new GoogleGenerativeAI(process.env.GEMINI_API_KEY).getGenerativeModel({
+  const model = new GoogleGenerativeAI(GEMINI_API_KEY).getGenerativeModel({
     model: process.env.GEMINI_MODEL || "gemini-2.0-flash",
     systemInstruction: SHORT_PROMPT,
     generationConfig: { responseMimeType: "application/json" },
   });
   return (await model.generateContent(text)).response.text();
 };
-const GROQ_API_KEY=process.env.GROQ_API_KEY;
 // Model names can be changed in .env (GROQ_MODEL=...) without touching code.
 // Check these defaults against each provider's current model list.
 const PROVIDERS = [
-  { name: "groq", keyEnv: "GROQ_API_KEY",
-    call: openAICompat({ baseURL: "https://api.groq.com/openai/v1", keyEnv: "GROQ_API_KEY",
-      modelEnv: "GROQ_MODEL", defaultModel: "llama-3.1-8b-instant" }) },
-  { name: "nvidia", keyEnv: "NVIDIA_API_KEY",
-    call: openAICompat({ baseURL: "https://integrate.api.nvidia.com/v1", keyEnv: "NVIDIA_API_KEY",
+  { name: "groq", apiKey: GROQ_API_KEY,
+    call: openAICompat({ baseURL: "https://api.groq.com/openai/v1", apiKey: GROQ_API_KEY,
+      modelEnv: "GROQ_MODEL", defaultModel: "openai/gpt-oss-20b" }) },
+  { name: "nvidia", apiKey: NVIDIA_API_KEY,
+    call: openAICompat({ baseURL: "https://integrate.api.nvidia.com/v1", apiKey: NVIDIA_API_KEY,
       modelEnv: "NVIDIA_MODEL", defaultModel: "meta/llama-3.3-70b-instruct" }) },
-  { name: "cerebras", keyEnv: "CEREBRAS_API_KEY",
-    call: openAICompat({ baseURL: "https://api.cerebras.ai/v1", keyEnv: "CEREBRAS_API_KEY",
+  { name: "cerebras", apiKey: CEREBRAS_API_KEY,
+    call: openAICompat({ baseURL: "https://api.cerebras.ai/v1", apiKey: CEREBRAS_API_KEY,
       modelEnv: "CEREBRAS_MODEL", defaultModel: "gemma-4-31b" }) },
-  { name: "gemini", keyEnv: "GEMINI_API_KEY", call: callGemini },
-  { name: "openrouter", keyEnv: "OPENROUTER_API_KEY",
-    call: openAICompat({ baseURL: "https://openrouter.ai/api/v1", keyEnv: "OPENROUTER_API_KEY",
-      modelEnv: "OPENROUTER_MODEL", defaultModel: "meta-llama/llama-3.3-70b-instruct:free",
+  { name: "gemini", apiKey: GEMINI_API_KEY, call: callGemini },
+  { name: "openrouter", apiKey: OPENROUTER_API_KEY,
+    call: openAICompat({ baseURL: "https://openrouter.ai/api/v1", apiKey: OPENROUTER_API_KEY,
+      modelEnv: "OPENROUTER_MODEL", defaultModel: "liquid/lfm-2.5-2.6b:free",
       json: false, headers: { "HTTP-Referer": "http://localhost:5000", "X-Title": "EthioJobFinder" } }) },
 ];
 
@@ -422,7 +429,7 @@ const validateAI = (o) => {
 const askAI = (text) =>
   enqueue(async () => {
     for (const p of PROVIDERS) {
-      if (!process.env[p.keyEnv] || Date.now() < (cooldownUntil[p.name] ?? 0)) continue;
+      if (!p.apiKey || Date.now() < (cooldownUntil[p.name] ?? 0)) continue;
       try {
         const raw = await withTimeout(p.call(text), AI_TIMEOUT_MS);
         const parsed = validateAI(extractJson(raw));
@@ -430,7 +437,9 @@ const askAI = (text) =>
         console.warn(`⚠️ [${p.name}] returned unusable JSON, trying next provider`);
       } catch (err) {
         cooldownUntil[p.name] = Date.now() + (err?.status === 429 ? 60_000 : 15_000);
-        console.warn(`⚠️ [${p.name}] failed (${err?.status ?? err?.message}); skipping it for a while`);
+        console.warn(
+          `⚠️ [${p.name}] failed (${err?.status ?? "unknown"}): ${err?.error?.message ?? err?.message ?? "No error details"}; skipping it for a while`
+        );
       }
     }
     return null;

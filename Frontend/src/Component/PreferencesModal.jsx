@@ -35,13 +35,7 @@ export default function PreferencesModal({ user, onClose, onSave, botUsername = 
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [onClose]);
 
-  const toggleCategory = (categoryName) => {
-    setSelectedCategories((prev) =>
-      prev.includes(categoryName)
-        ? prev.filter((c) => c !== categoryName)
-        : [...prev, categoryName]
-    );
-  };
+ 
 
   const handleToggleAll = () => {
     if (selectedCategories.length === CATEGORIES.length) {
@@ -51,21 +45,31 @@ export default function PreferencesModal({ user, onClose, onSave, botUsername = 
     }
   };
 
-  const handleSave = async () => {
-    setSaving(true);
-    try {
-      await onSave({
-        telegramId: user?.telegramId || user?.id,
-        subscribedCategories: selectedCategories,
-        notificationsEnabled,
-      });
-      onClose();
-    } catch (err) {
-      console.error("Failed to save preferences:", err);
-    } finally {
-      setSaving(false);
-    }
-  };
+
+const handleSave = async () => {
+  setSaving(true);
+
+  try {
+    await onSave({
+      telegramId: user?.telegramId || user?.id,
+      categories: selectedCategories,
+      notificationsEnabled,
+    });
+  } catch (err) {
+    console.error("Failed to save preferences:", err);
+  } finally {
+    setSaving(false);
+  }
+};
+
+const toggleCategory = (categoryName) => {
+  setSelectedCategories((prev) =>
+    prev.includes(categoryName)
+      ? prev.filter((category) => category !== categoryName)
+      : [...prev, categoryName]
+  );
+};
+
 
   const isAllSelected = selectedCategories.length === CATEGORIES.length;
 
