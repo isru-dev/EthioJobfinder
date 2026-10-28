@@ -1,4 +1,27 @@
+
 import { useState, useEffect } from "react";
+import {
+  Search,
+  X,
+  BriefcaseBusiness,
+  Building2,
+  CalendarDays,
+  Mail,
+  Phone,
+  ExternalLink,
+  ChevronLeft,
+  ChevronRight,
+  SlidersHorizontal,
+  Moon,
+  Sun,
+  MapPin,
+  Tags,
+  FileText,
+  ArrowUpRight,
+  LoaderCircle,
+  Inbox,
+} from "lucide-react";
+
 import { fetchJobs } from "../api/jobService";
 
 const CATEGORIES = [
@@ -13,11 +36,14 @@ const CATEGORIES = [
 
 const getTelegramUrl = (job) => {
   if (!job) return "https://t.me";
+
   if (job.postUrl) return job.postUrl;
 
   const username = job.channelUsername || job.sourceName;
+
   if (username && username.startsWith("@")) {
     const cleanUsername = username.replace("@", "");
+
     return job.messageId
       ? `https://t.me/${cleanUsername}/${job.messageId}`
       : `https://t.me/${cleanUsername}`;
@@ -26,313 +52,541 @@ const getTelegramUrl = (job) => {
   return "https://t.me";
 };
 
-export default function JobFeed() {
-  // Read initial user state from localStorage
-  const [user, setUser] = useState(() => {
-    const saved = localStorage.getItem("ethio_job_user");
-    return saved ? JSON.parse(saved) : null;
-  });
-  
+const formatDate = (date) => {
+  if (!date) return "Date unavailable";
 
+  const parsedDate = new Date(date);
+
+  if (Number.isNaN(parsedDate.getTime())) {
+    return "Date unavailable";
+  }
+
+  return parsedDate.toLocaleDateString(undefined, {
+    year: "numeric",
+    month: "short",
+    day: "numeric",
+  });
+};
+
+export default function JobFeed({ dark, setDark }) {
   const [jobs, setJobs] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [dark, setDark] = useState(false);
 
-  // Filter & Pagination States
   const [search, setSearch] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("All");
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [totalJobs, setTotalJobs] = useState(0);
-
-  // Selected job for detailed modal
   const [activeJob, setActiveJob] = useState(null);
 
-  // Fetch jobs on state change
   useEffect(() => {
-    const loadJobs = async () => {
+    const controller = new AbortController();
+    let isCurrent = true;
+
+    const timer = setTimeout(async () => {
       setLoading(true);
+
       try {
         const res = await fetchJobs({
           page,
           limit: 15,
           search,
           category: selectedCategory,
+          signal: controller.signal,
         });
-        setJobs(res.data);
-        setTotalPages(res.totalPages);
-        setTotalJobs(res.count);
+
+        if (!isCurrent) return;
+
+        setJobs(res.data || []);
+        setTotalPages(res.totalPages || 1);
+        setTotalJobs(res.count || 0);
         setError(null);
       } catch (err) {
-        setError(
-          "Failed to fetch jobs. Is your backend server running?"
-        );
+        if (!isCurrent || err.name === "AbortError") return;
+
+        setError("Unable to load jobs. Please check your connection and try again.");
       } finally {
-        setLoading(false);
+        if (isCurrent) setLoading(false);
+      }
+    }, 300);
+
+    return () => {
+      isCurrent = false;
+      clearTimeout(timer);
+      controller.abort();
+    };
+  }, [search, selectedCategory, page]);
+
+  useEffect(() => {
+    if (!activeJob) return;
+
+    const handleEscape = (event) => {
+      if (event.key === "Escape") {
+        setActiveJob(null);
       }
     };
 
-    const timer = setTimeout(() => {
-      loadJobs();
-    }, 300);
+    window.addEventListener("keydown", handleEscape);
+    document.body.style.overflow = "hidden";
 
-    return () => clearTimeout(timer);
-  }, [search, selectedCategory, page]);
+    return () => {
+      window.removeEventListener("keydown", handleEscape);
+      document.body.style.overflow = "";
+    };
+  }, [activeJob]);
+
+  const pageBg = dark
+    ? "bg-slate-950 text-slate-100"
+    : "bg-slate-50 text-slate-900";
+
+  const panel = dark
+    ? "bg-slate-900 border-slate-800"
+    : "bg-white border-slate-200";
+
+  const muted = dark ? "text-slate-400" : "text-slate-500";
+
+  const inputStyle = dark
+    ? "bg-slate-950 border-slate-700 text-white placeholder:text-slate-500"
+    : "bg-white border-slate-200 text-slate-900 placeholder:text-slate-400";
 
   return (
-    <div
-      className={`min-h-screen font-sans p-6 md:p-12 ${
-        dark ? "bg-slate-950 text-white" : "bg-slate-50 text-slate-800"
-      }`}
-    >
-      <div className="max-w-7xl mx-auto space-y-8">
-        
-      
-        {/* Header */}
-        <header className="text-center space-y-3">
-          <h1 className="text-4xl font-extrabold text-slate-900 tracking-tight">
-            Ethio Job Explorer 
-          </h1>
-          <p className="text-slate-600 text-lg">
-            Real-time aggregated vacancies powered by live Telegram streams
-          </p>
+    <main className={`min-h-screen ${pageBg} transition-colors duration-200`}>
+      <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8 lg:py-12">
+
+        {/* Page heading */}
+        <header className="mb-8 flex flex-col gap-5 sm:flex-row sm:items-end sm:justify-between">
+          <div>
+            <div className="mb-3 inline-flex items-center gap-2 rounded-full border border-indigo-200 bg-indigo-50 px-3 py-1.5 text-xs font-semibold text-indigo-700 dark:border-indigo-900 dark:bg-indigo-950 dark:text-indigo-300">
+              <BriefcaseBusiness size={14} />
+              Your next opportunity starts here
+            </div>
+
+            <h1 className="text-3xl font-bold tracking-tight sm:text-4xl">
+              Explore opportunities
+            </h1>
+
+            <p className={`mt-2 max-w-2xl text-sm sm:text-base ${muted}`}>
+              Discover job vacancies collected from Telegram channels in one place.
+            </p>
+          </div>
+
+          <button
+            type="button"
+            onClick={() => setDark((prev) => !prev)}
+            aria-label={dark ? "Switch to light mode" : "Switch to dark mode"}
+            className={`inline-flex w-fit items-center gap-2 rounded-xl border px-4 py-2.5 text-sm font-medium transition hover:opacity-80 ${panel}`}
+          >
+            {dark ? <Sun size={17} /> : <Moon size={17} />}
+            {dark ? "Light mode" : "Dark mode"}
+          </button>
         </header>
 
-        {/* Controls: Search & Category Filters */}
-        <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 space-y-4">
-          {/* Search Bar */}
+        {/* Search and filters */}
+        <section className={`mb-8 rounded-2xl border p-4 shadow-sm sm:p-6 ${panel}`}>
+          <div className="mb-5 flex items-center gap-2">
+            <SlidersHorizontal size={18} className="text-indigo-500" />
+            <h2 className="font-semibold">Find your next role</h2>
+          </div>
+
           <div className="relative">
+            <Search
+              size={19}
+              className={`absolute left-4 top-1/2 -translate-y-1/2 ${muted}`}
+            />
+
             <input
-              type="text"
-              placeholder="Search by title, skills, or tags (e.g., React, Accountant)..."
+              type="search"
               value={search}
               onChange={(e) => {
                 setSearch(e.target.value);
                 setPage(1);
               }}
-              className="w-full pl-4 pr-10 py-3 rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all text-slate-900 placeholder-slate-400"
+              placeholder="Search jobs, skills, or companies..."
+              aria-label="Search jobs"
+              className={`w-full rounded-xl border py-3 pl-11 pr-11 text-sm outline-none transition focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 ${inputStyle}`}
             />
+
             {search && (
               <button
-                onClick={() => setSearch("")}
-                className="absolute right-3 top-3 text-slate-400 hover:text-slate-600"
+                type="button"
+                onClick={() => {
+                  setSearch("");
+                  setPage(1);
+                }}
+                aria-label="Clear search"
+                className={`absolute right-3 top-1/2 -translate-y-1/2 rounded-lg p-1.5 transition hover:bg-slate-200/50 ${muted}`}
               >
-                ✕
+                <X size={17} />
               </button>
             )}
           </div>
 
-          {/* Category Badges */}
-          <div className="flex flex-wrap gap-2 pt-2">
-            {CATEGORIES.map((cat) => (
-              <button
-                key={cat}
-                onClick={() => {
-                  setSelectedCategory(cat);
-                  setPage(1);
-                }}
-                className={`px-4 py-2 rounded-xl text-sm font-medium transition-all ${
-                  selectedCategory === cat
-                    ? "bg-indigo-600 text-white shadow-md shadow-indigo-100"
-                    : "bg-slate-100 text-slate-600 hover:bg-slate-200"
-                }`}
-              >
-                {cat}
-              </button>
-            ))}
+          <div className="mt-4 flex flex-wrap gap-2">
+            {CATEGORIES.map((category) => {
+              const selected = selectedCategory === category;
+
+              return (
+                <button
+                  key={category}
+                  type="button"
+                  onClick={() => {
+                    setSelectedCategory(category);
+                    setPage(1);
+                  }}
+                  aria-pressed={selected}
+                  className={`rounded-lg border px-3 py-2 text-xs font-medium transition sm:text-sm ${
+                    selected
+                      ? "border-indigo-600 bg-indigo-600 text-white shadow-sm"
+                      : dark
+                        ? "border-slate-700 bg-slate-950 text-slate-300 hover:border-slate-500"
+                        : "border-slate-200 bg-slate-50 text-slate-600 hover:border-indigo-300 hover:text-indigo-700"
+                  }`}
+                >
+                  {category}
+                </button>
+              );
+            })}
           </div>
+        </section>
+
+        {/* Results heading */}
+        <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <h2 className="text-lg font-bold">
+              {search ? "Search results" : "Latest vacancies"}
+            </h2>
+
+            <p className={`mt-1 text-sm ${muted}`}>
+              {loading
+                ? "Finding relevant opportunities..."
+                : `${totalJobs.toLocaleString()} ${totalJobs === 1 ? "job" : "jobs"} found`}
+            </p>
+          </div>
+
+          {selectedCategory !== "All" && (
+            <button
+              type="button"
+              onClick={() => {
+                setSelectedCategory("All");
+                setPage(1);
+              }}
+              className="text-sm font-medium text-indigo-500 hover:text-indigo-400"
+            >
+              Clear category
+            </button>
+          )}
         </div>
 
-        {/* Status Messages */}
+        {/* Error message */}
         {error && (
-          <div className="p-4 bg-red-50 text-red-600 rounded-xl border border-red-200 text-center font-medium">
-            {error}
+          <div
+            role="alert"
+            className="mb-6 flex flex-col gap-3 rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-700 dark:border-red-900 dark:bg-red-950/40 dark:text-red-300 sm:flex-row sm:items-center sm:justify-between"
+          >
+            <p>{error}</p>
+
+            <button
+              type="button"
+              onClick={() => setPage((prev) => prev)}
+              className="font-semibold underline"
+            >
+              Try again
+            </button>
           </div>
         )}
 
-        {/* Loading Skeleton */}
+        {/* Loading skeleton */}
         {loading ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {[...Array(6)].map((_, i) => (
+          <div className="grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-3">
+            {Array.from({ length: 6 }).map((_, index) => (
               <div
-                key={i}
-                className="bg-white p-6 rounded-2xl border border-slate-200 space-y-4 animate-pulse"
+                key={index}
+                className={`animate-pulse rounded-2xl border p-5 ${panel}`}
               >
-                <div className="h-6 bg-slate-200 rounded w-3/4"></div>
-                <div className="h-4 bg-slate-100 rounded w-1/2"></div>
-                <div className="h-20 bg-slate-100 rounded"></div>
+                <div className="mb-5 flex justify-between gap-3">
+                  <div className="h-6 w-24 rounded-lg bg-slate-200 dark:bg-slate-700" />
+                  <div className="h-4 w-20 rounded bg-slate-200 dark:bg-slate-700" />
+                </div>
+                <div className="mb-3 h-5 w-4/5 rounded bg-slate-200 dark:bg-slate-700" />
+                <div className="mb-6 h-4 w-2/5 rounded bg-slate-200 dark:bg-slate-700" />
+                <div className="mb-2 h-3 w-full rounded bg-slate-100 dark:bg-slate-800" />
+                <div className="mb-6 h-3 w-3/4 rounded bg-slate-100 dark:bg-slate-800" />
+                <div className="h-10 rounded-xl bg-slate-200 dark:bg-slate-700" />
               </div>
             ))}
           </div>
         ) : jobs.length === 0 ? (
-          <div className="text-center py-16 space-y-3">
-            <div className="text-4xl">🔍</div>
-            <h3 className="text-xl font-bold text-slate-700">No jobs found</h3>
-            <p className="text-slate-500">
-              Try adjusting your search terms or filters.
+          <div className={`rounded-2xl border px-5 py-16 text-center ${panel}`}>
+            <div className={`mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl ${dark ? "bg-slate-800" : "bg-slate-100"}`}>
+              <Inbox size={27} className={muted} />
+            </div>
+
+            <h3 className="text-lg font-bold">No jobs found</h3>
+
+            <p className={`mx-auto mt-2 max-w-md text-sm ${muted}`}>
+              Try another search term or choose a different category to discover more opportunities.
             </p>
+
+            <button
+              type="button"
+              onClick={() => {
+                setSearch("");
+                setSelectedCategory("All");
+                setPage(1);
+              }}
+              className="mt-5 rounded-xl bg-indigo-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-indigo-700"
+            >
+              Reset filters
+            </button>
           </div>
         ) : (
-          /* Job Grid */
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {jobs.map((job) => {
-              const telegramUrl = getTelegramUrl(job);
+          /* Job cards */
+          <div className="grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-3">
+            {jobs.map((job) => (
+              <article
+                key={job._id}
+                className={`group flex min-w-0 flex-col justify-between rounded-2xl border p-5 shadow-sm transition duration-200 hover:-translate-y-0.5 hover:shadow-lg ${panel} ${
+                  dark ? "hover:border-slate-600" : "hover:border-indigo-200"
+                }`}
+              >
+                <div>
+                  <div className="mb-4 flex items-start justify-between gap-3">
+                    <span className="inline-flex max-w-[70%] items-center gap-1.5 rounded-lg bg-indigo-50 px-2.5 py-1.5 text-xs font-semibold text-indigo-700 dark:bg-indigo-950 dark:text-indigo-300">
+                      <Tags size={13} />
+                      <span className="truncate">{job.category || "General / Other"}</span>
+                    </span>
 
-              return (
-                <div
-                  key={job._id}
-                  className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm hover:shadow-md transition-all flex flex-col justify-between"
-                >
-                  <div className="space-y-3">
-                    <div className="flex justify-between items-start gap-2">
-                      <span className="px-3 py-1 bg-indigo-50 text-indigo-700 text-xs font-semibold rounded-lg">
-                        {job.category}
-                      </span>
-                      <span className="text-xs text-slate-400">
-                        {new Date(job.createdAt).toLocaleDateString()}
-                      </span>
-                    </div>
+                    <span className={`flex shrink-0 items-center gap-1 text-xs ${muted}`}>
+                      <CalendarDays size={13} />
+                      {formatDate(job.createdAt)}
+                    </span>
+                  </div>
 
-                    <div>
-                      <h3 className="text-lg font-bold text-slate-900 line-clamp-1">
-                        {job.title}
-                      </h3>
-                      <p className="text-sm text-slate-500 font-medium">
-                        🏢 {job.company}
-                      </p>
-                    </div>
+                  <h3 className="line-clamp-2 text-lg font-bold leading-snug transition group-hover:text-indigo-600 dark:group-hover:text-indigo-400">
+                    {job.title || "Untitled vacancy"}
+                  </h3>
 
-                    <div className="flex flex-wrap gap-1.5 pt-1">
-                      {job.tags?.slice(0, 4).map((tag, idx) => (
+                  <p className={`mt-2 flex items-center gap-2 text-sm ${muted}`}>
+                    <Building2 size={15} className="shrink-0" />
+                    <span className="truncate">{job.company || "Company not specified"}</span>
+                  </p>
+
+                  {job.tags?.length > 0 && (
+                    <div className="mt-4 flex flex-wrap gap-1.5">
+                      {job.tags.slice(0, 4).map((tag, index) => (
                         <span
-                          key={idx}
-                          className="text-xs px-2 py-0.5 bg-slate-100 text-slate-600 rounded-md"
+                          key={`${tag}-${index}`}
+                          className={`rounded-md px-2 py-1 text-xs ${dark ? "bg-slate-800 text-slate-300" : "bg-slate-100 text-slate-600"}`}
                         >
                           #{tag}
                         </span>
                       ))}
                     </div>
+                  )}
 
-                    <div className="pt-2 text-xs space-y-1 text-slate-600">
+                  {(job.contactEmail || job.contactPhone) && (
+                    <div className={`mt-4 space-y-2 border-t pt-4 text-xs ${dark ? "border-slate-800" : "border-slate-100"} ${muted}`}>
                       {job.contactEmail && (
-                        <div className="truncate">✉️ {job.contactEmail}</div>
+                        <p className="flex min-w-0 items-center gap-2">
+                          <Mail size={14} className="shrink-0" />
+                          <span className="truncate">{job.contactEmail}</span>
+                        </p>
                       )}
+
                       {job.contactPhone && (
-                        <div>📞 {job.contactPhone}</div>
+                        <p className="flex items-center gap-2">
+                          <Phone size={14} className="shrink-0" />
+                          <span>{job.contactPhone}</span>
+                        </p>
                       )}
                     </div>
-                  </div>
-
-                  <div className="mt-6 space-y-2">
-                    <button
-                      onClick={() => setActiveJob(job)}
-                      className="w-full py-2.5 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-sm font-semibold transition-all"
-                    >
-                      View Details
-                    </button>
-
-                    <a
-                      href={telegramUrl}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="w-full py-2 bg-sky-50 hover:bg-sky-100 text-sky-700 border border-sky-200 rounded-xl text-xs font-semibold transition-all flex items-center justify-center gap-2"
-                    >
-                      <svg className="w-3.5 h-3.5 fill-current" viewBox="0 0 24 24">
-                        <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm4.64 6.8c-.15 1.58-.8 5.42-1.13 7.19-.14.75-.42 1-.68 1.03-.58.05-1.02-.38-1.58-.75-.88-.58-1.38-.94-2.23-1.5-.99-.65-.35-1.01.22-1.59.15-.15 2.71-2.48 2.76-2.69a.2.2 0 00-.05-.18c-.06-.05-.14-.03-.21-.02-.09.02-1.49.95-4.22 2.79-.4.27-.76.41-1.08.4-.36-.01-1.04-.2-1.55-.37-.63-.2-1.12-.31-1.08-.66.02-.18.27-.36.74-.55 2.92-1.27 4.86-2.11 5.83-2.51 2.78-1.16 3.35-1.36 3.73-1.36.08 0 .27.02.39.12.1.08.13.19.14.27-.01.06.01.24 0 .38z" />
-                      </svg>
-                      <span>View Original Post</span>
-                    </a>
-                  </div>
+                  )}
                 </div>
-              );
-            })}
+
+                <div className="mt-6 flex flex-col gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setActiveJob(job)}
+                    className="flex w-full items-center justify-center gap-2 rounded-xl bg-indigo-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
+                  >
+                    View details
+                    <ArrowUpRight size={16} />
+                  </button>
+
+                  <a
+                    href={getTelegramUrl(job)}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className={`flex w-full items-center justify-center gap-2 rounded-xl border px-4 py-2.5 text-sm font-semibold transition ${dark ? "border-slate-700 text-slate-300 hover:bg-slate-800" : "border-slate-200 text-slate-600 hover:bg-slate-50 hover:text-slate-900"}`}
+                  >
+                    <ExternalLink size={15} />
+                    Original Telegram post
+                  </a>
+                </div>
+              </article>
+            ))}
           </div>
         )}
 
-        {/* Pagination Bar */}
-        {!loading && totalPages > 1 && (
-          <div className="flex justify-center items-center space-x-4 pt-6">
+        {/* Pagination */}
+        {!loading && !error && jobs.length > 0 && totalPages > 1 && (
+          <nav
+            aria-label="Job results pagination"
+            className={`mt-8 flex flex-wrap items-center justify-center gap-4 rounded-2xl border p-4 ${panel}`}
+          >
             <button
-              disabled={page === 1}
+              type="button"
+              disabled={page <= 1}
               onClick={() => setPage((prev) => Math.max(prev - 1, 1))}
-              className="px-4 py-2 bg-white border border-slate-200 rounded-xl font-medium text-sm disabled:opacity-50 hover:bg-slate-50 transition-all"
+              className={`inline-flex items-center gap-2 rounded-xl border px-4 py-2.5 text-sm font-medium transition disabled:cursor-not-allowed disabled:opacity-40 ${dark ? "border-slate-700 hover:bg-slate-800" : "border-slate-200 hover:bg-slate-50"}`}
             >
+              <ChevronLeft size={16} />
               Previous
             </button>
 
-            <span className="text-sm font-semibold text-slate-600">
-              Page {page} of {totalPages}
+            <span className={`text-sm font-medium ${muted}`}>
+              Page <span className="font-bold">{page}</span> of{" "}
+              <span className="font-bold">{totalPages}</span>
             </span>
 
             <button
-              disabled={page === totalPages}
+              type="button"
+              disabled={page >= totalPages}
               onClick={() => setPage((prev) => Math.min(prev + 1, totalPages))}
-              className="px-4 py-2 bg-white border border-slate-200 rounded-xl font-medium text-sm disabled:opacity-50 hover:bg-slate-50 transition-all"
+              className={`inline-flex items-center gap-2 rounded-xl border px-4 py-2.5 text-sm font-medium transition disabled:cursor-not-allowed disabled:opacity-40 ${dark ? "border-slate-700 hover:bg-slate-800" : "border-slate-200 hover:bg-slate-50"}`}
             >
               Next
+              <ChevronRight size={16} />
             </button>
-          </div>
+          </nav>
         )}
 
-        {/* Full Job Modal */}
+        {/* Job details modal */}
         {activeJob && (
-          <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm flex items-center justify-center p-4 z-50">
-            <div className="bg-white rounded-2xl max-w-2xl w-full max-h-[85vh] overflow-y-auto p-6 md:p-8 space-y-6 shadow-2xl border border-slate-100">
-              <div className="flex justify-between items-start">
-                <div>
-                  <h2 className="text-2xl font-bold text-slate-900">
-                    {activeJob.title}
+          <div
+            className="fixed inset-0 z-50 flex items-end justify-center bg-slate-950/60 p-0 backdrop-blur-sm sm:items-center sm:p-4"
+            onMouseDown={(event) => {
+              if (event.target === event.currentTarget) {
+                setActiveJob(null);
+              }
+            }}
+          >
+            <section
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="job-modal-title"
+              className={`max-h-[92dvh] w-full max-w-2xl overflow-y-auto rounded-t-2xl border p-5 shadow-2xl sm:rounded-2xl sm:p-7 ${panel}`}
+            >
+              <div className="mb-6 flex items-start justify-between gap-4">
+                <div className="min-w-0">
+                  <span className="mb-3 inline-flex rounded-lg bg-indigo-50 px-2.5 py-1.5 text-xs font-semibold text-indigo-700 dark:bg-indigo-950 dark:text-indigo-300">
+                    {activeJob.category || "General / Other"}
+                  </span>
+
+                  <h2 id="job-modal-title" className="break-words text-xl font-bold sm:text-2xl">
+                    {activeJob.title || "Untitled vacancy"}
                   </h2>
-                  <p className="text-slate-500 font-medium">
-                    🏢 {activeJob.company}
+
+                  <p className={`mt-2 flex items-center gap-2 text-sm ${muted}`}>
+                    <Building2 size={16} />
+                    {activeJob.company || "Company not specified"}
                   </p>
                 </div>
+
                 <button
+                  type="button"
                   onClick={() => setActiveJob(null)}
-                  className="p-2 text-slate-400 hover:text-slate-600 font-bold text-lg"
+                  aria-label="Close job details"
+                  className={`shrink-0 rounded-xl border p-2 transition ${dark ? "border-slate-700 hover:bg-slate-800" : "border-slate-200 hover:bg-slate-100"}`}
                 >
-                  ✕
+                  <X size={19} />
                 </button>
               </div>
 
-              <div className="flex items-center gap-2">
-                <span className="px-3 py-1 bg-slate-100 text-slate-600 text-xs rounded-lg font-medium">
-                  Source: {activeJob.sourceName}
-                </span>
-                <span className="px-3 py-1 bg-indigo-50 text-indigo-700 text-xs rounded-lg font-medium">
-                  {activeJob.category}
+              <div className={`mb-5 flex flex-wrap gap-3 text-xs ${muted}`}>
+                {activeJob.sourceName && (
+                  <span className={`rounded-lg px-3 py-2 ${dark ? "bg-slate-800" : "bg-slate-100"}`}>
+                    Source: {activeJob.sourceName}
+                  </span>
+                )}
+
+                <span className={`flex items-center gap-1.5 rounded-lg px-3 py-2 ${dark ? "bg-slate-800" : "bg-slate-100"}`}>
+                  <CalendarDays size={13} />
+                  {formatDate(activeJob.createdAt)}
                 </span>
               </div>
 
-              <div className="bg-slate-50 p-4 rounded-xl text-slate-700 whitespace-pre-wrap font-mono text-xs leading-relaxed border border-slate-200">
-                {activeJob.rawText}
+              {activeJob.tags?.length > 0 && (
+                <div className="mb-5 flex flex-wrap gap-2">
+                  {activeJob.tags.map((tag, index) => (
+                    <span
+                      key={`${tag}-${index}`}
+                      className={`rounded-lg px-2.5 py-1.5 text-xs ${dark ? "bg-slate-800 text-slate-300" : "bg-slate-100 text-slate-600"}`}
+                    >
+                      #{tag}
+                    </span>
+                  ))}
+                </div>
+              )}
+
+              <div className={`rounded-xl border p-4 sm:p-5 ${dark ? "border-slate-800 bg-slate-950" : "border-slate-200 bg-slate-50"}`}>
+                <h3 className="mb-3 flex items-center gap-2 text-sm font-semibold">
+                  <FileText size={16} className="text-indigo-500" />
+                  Job description
+                </h3>
+
+                <p className={`whitespace-pre-wrap break-words text-sm leading-7 ${dark ? "text-slate-300" : "text-slate-700"}`}>
+                  {activeJob.rawText || "No additional job description is available."}
+                </p>
               </div>
 
-              <div className="flex flex-col md:flex-row gap-3 pt-2">
+              {(activeJob.contactEmail || activeJob.contactPhone) && (
+                <div className="mt-5 space-y-3">
+                  <h3 className="text-sm font-semibold">Contact information</h3>
+
+                  {activeJob.contactEmail && (
+                    <a
+                      href={`mailto:${activeJob.contactEmail}`}
+                      className="flex min-w-0 items-center gap-3 text-sm text-indigo-500 hover:underline"
+                    >
+                      <Mail size={16} className="shrink-0" />
+                      <span className="break-all">{activeJob.contactEmail}</span>
+                    </a>
+                  )}
+
+                  {activeJob.contactPhone && (
+                    <p className={`flex items-center gap-3 text-sm ${muted}`}>
+                      <Phone size={16} />
+                      {activeJob.contactPhone}
+                    </p>
+                  )}
+                </div>
+              )}
+
+              <div className="mt-6 flex flex-col gap-3 sm:flex-row">
                 <a
                   href={getTelegramUrl(activeJob)}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="flex-1 py-3 bg-sky-600 hover:bg-sky-700 text-white rounded-xl font-semibold transition-all flex items-center justify-center gap-2 shadow-md shadow-sky-100"
+                  className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-indigo-600 px-4 py-3 text-sm font-semibold text-white transition hover:bg-indigo-700"
                 >
-                  <svg className="w-4 h-4 fill-current" viewBox="0 0 24 24">
-                    <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm4.64 6.8c-.15 1.58-.8 5.42-1.13 7.19-.14.75-.42 1-.68 1.03-.58.05-1.02-.38-1.58-.75-.88-.58-1.38-.94-2.23-1.5-.99-.65-.35-1.01.22-1.59.15-.15 2.71-2.48 2.76-2.69a.2.2 0 00-.05-.18c-.06-.05-.14-.03-.21-.02-.09.02-1.49.95-4.22 2.79-.4.27-.76.41-1.08.4-.36-.01-1.04-.2-1.55-.37-.63-.2-1.12-.31-1.08-.66.02-.18.27-.36.74-.55 2.92-1.27 4.86-2.11 5.83-2.51 2.78-1.16 3.35-1.36 3.73-1.36.08 0 .27.02.39.12.1.08.13.19.14.27-.01.06.01.24 0 .38z" />
-                  </svg>
-                  <span>Open Post on Telegram</span>
+                  Open original post
+                  <ExternalLink size={16} />
                 </a>
 
                 <button
+                  type="button"
                   onClick={() => setActiveJob(null)}
-                  className="px-6 py-3 bg-slate-100 text-slate-700 rounded-xl font-semibold hover:bg-slate-200 transition-all"
+                  className={`rounded-xl border px-5 py-3 text-sm font-semibold transition ${dark ? "border-slate-700 hover:bg-slate-800" : "border-slate-200 hover:bg-slate-100"}`}
                 >
                   Close
                 </button>
               </div>
-            </div>
+            </section>
           </div>
         )}
       </div>
-    </div>
+    </main>
   );
 }

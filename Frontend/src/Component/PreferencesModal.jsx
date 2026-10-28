@@ -9,7 +9,7 @@ const CATEGORIES = [
   { id: "General / Other", label: "General / Other", desc: "Miscellaneous fields" },
 ];
 
-export default function PreferencesModal({ user, onClose, onSave, botUsername = "EJobExplore_bot" }) {
+export default function PreferencesModal({ user, onClose, onSave, dark, botUsername = "EJobExplore_bot" }) {
   const [selectedCategories, setSelectedCategories] = useState(
     user?.subscribedCategories || []
   );
@@ -86,22 +86,28 @@ const toggleCategory = (categoryName) => {
       {/* Modal Box */}
       <div
         onClick={(e) => e.stopPropagation()}
-        className="bg-white rounded-3xl max-w-lg w-full p-6 sm:p-7 space-y-5 shadow-2xl border border-slate-200/80 my-auto transition-all transform"
+        className={`max-w-lg w-full p-6 sm:p-7 space-y-5 rounded-3xl shadow-2xl my-auto transition-all transform border ${
+          dark ? "bg-slate-900 border-slate-700" : "bg-white border-slate-200/80"
+        }`}
       >
         {/* Header */}
-        <div className="flex justify-between items-start border-b border-slate-100 pb-4">
+        <div className={`flex justify-between items-start border-b pb-4 ${dark ? "border-slate-800" : "border-slate-100"}`}>
           <div className="space-y-1">
-            <h2 className="text-xl font-bold text-slate-900 tracking-tight">
+            <h2 className={`text-xl font-bold tracking-tight ${dark ? "text-slate-100" : "text-slate-900"}`}>
               Notification Preferences
             </h2>
-            <p className="text-xs font-medium text-slate-500 flex items-center gap-1.5">
+            <p className={`text-xs font-medium flex items-center gap-1.5 ${dark ? "text-slate-400" : "text-slate-500"}`}>
               <span className="w-2 h-2 rounded-full bg-emerald-500 inline-block" />
               Connected as @{user?.username || user?.first_name || user?.firstName || "User"}
             </p>
           </div>
           <button
             onClick={onClose}
-            className="text-slate-400 hover:text-slate-600 bg-slate-50 hover:bg-slate-100 p-2 rounded-full transition-all"
+            className={`p-2 rounded-full transition-all ${
+              dark
+                ? "text-slate-400 bg-slate-800 hover:bg-slate-700 hover:text-slate-200"
+                : "text-slate-400 bg-slate-50 hover:bg-slate-100 hover:text-slate-600"
+            }`}
             aria-label="Close modal"
           >
             <svg
@@ -121,7 +127,11 @@ const toggleCategory = (categoryName) => {
         </div>
 
         {/* Telegram Bot Start Direct Link Banner */}
-        <div className="bg-indigo-50/60 border border-indigo-100 p-3 rounded-2xl flex items-center justify-between text-xs text-indigo-950">
+        <div className={`border p-3 rounded-2xl flex items-center justify-between text-xs ${
+          dark
+            ? "bg-indigo-950/50 border-indigo-900 text-indigo-200"
+            : "bg-indigo-50/60 border-indigo-100 text-indigo-950"
+        }`}>
           <span className="flex items-center gap-2 font-medium">
             ✈️ Ensure you started our bot on Telegram
           </span>
@@ -136,12 +146,16 @@ const toggleCategory = (categoryName) => {
         </div>
 
         {/* Master Switch Card */}
-        <div className="flex items-center justify-between bg-slate-50/80 hover:bg-slate-50 p-4 rounded-2xl border border-slate-200/80 transition-all">
+        <div className={`flex items-center justify-between p-4 rounded-2xl border transition-all ${
+          dark
+            ? "bg-slate-800/80 hover:bg-slate-800 border-slate-700"
+            : "bg-slate-50/80 hover:bg-slate-50 border-slate-200/80"
+        }`}>
           <div className="space-y-0.5">
-            <span className="text-sm font-semibold text-slate-800 block">
+            <span className={`text-sm font-semibold block ${dark ? "text-slate-200" : "text-slate-800"}`}>
               Direct Messaging Alerts
             </span>
-            <span className="text-xs text-slate-500 block">
+            <span className={`text-xs block ${dark ? "text-slate-400" : "text-slate-500"}`}>
               Receive instant job alerts directly via Telegram DM
             </span>
           </div>
@@ -167,7 +181,7 @@ const toggleCategory = (categoryName) => {
         {/* Category Pickers */}
         <div className="space-y-3">
           <div className="flex justify-between items-center px-0.5">
-            <label className="text-xs font-bold text-slate-400 uppercase tracking-wider">
+            <label className={`text-xs font-bold uppercase tracking-wider ${dark ? "text-slate-500" : "text-slate-400"}`}>
               Preferred Fields
             </label>
             <button
@@ -188,14 +202,20 @@ const toggleCategory = (categoryName) => {
                   onClick={() => toggleCategory(cat.label)}
                   className={`group cursor-pointer p-3.5 rounded-2xl border text-left transition-all duration-150 flex flex-col justify-between relative ${
                     isChecked
-                      ? "border-indigo-600/90 bg-indigo-50/40 shadow-sm ring-1 ring-indigo-600/30"
-                      : "border-slate-200/80 bg-white hover:border-slate-300 hover:bg-slate-50/50"
+                      ? dark
+                        ? "border-indigo-500/90 bg-indigo-950/50 shadow-sm ring-1 ring-indigo-500/30"
+                        : "border-indigo-600/90 bg-indigo-50/40 shadow-sm ring-1 ring-indigo-600/30"
+                      : dark
+                        ? "border-slate-700 bg-slate-900 hover:border-slate-600 hover:bg-slate-800"
+                        : "border-slate-200/80 bg-white hover:border-slate-300 hover:bg-slate-50/50"
                   }`}
                 >
                   <div className="flex items-start justify-between gap-2">
                     <span
                       className={`text-sm font-semibold transition-colors ${
-                        isChecked ? "text-indigo-950" : "text-slate-700"
+                        isChecked
+                          ? dark ? "text-indigo-200" : "text-indigo-950"
+                          : dark ? "text-slate-200" : "text-slate-700"
                       }`}
                     >
                       {cat.label}
@@ -206,7 +226,9 @@ const toggleCategory = (categoryName) => {
                       className={`w-5 h-5 rounded-full flex items-center justify-center text-xs font-bold transition-all ${
                         isChecked
                           ? "bg-indigo-600 text-white scale-100"
-                          : "border border-slate-300 bg-white opacity-40 group-hover:opacity-70"
+                          : dark
+                            ? "border border-slate-600 bg-slate-800 opacity-70 group-hover:opacity-100"
+                            : "border border-slate-300 bg-white opacity-40 group-hover:opacity-70"
                       }`}
                     >
                       {isChecked && (
@@ -239,7 +261,11 @@ const toggleCategory = (categoryName) => {
         <div className="flex items-center gap-3 pt-2">
           <button
             onClick={onClose}
-            className="w-1/3 py-3 px-4 bg-slate-100 hover:bg-slate-200/80 text-slate-700 rounded-xl font-semibold text-sm transition-all active:scale-[0.98]"
+            className={`w-1/3 py-3 px-4 rounded-xl font-semibold text-sm transition-all active:scale-[0.98] ${
+              dark
+                ? "bg-slate-800 hover:bg-slate-700 text-slate-200"
+                : "bg-slate-100 hover:bg-slate-200/80 text-slate-700"
+            }`}
           >
             Cancel
           </button>

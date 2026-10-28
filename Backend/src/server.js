@@ -13,7 +13,7 @@ import userRoutes from './routes/user.js';
 const app = express();
 
 const allowedOrigins = [
-      "https://compression-dictionaries-entrepreneurs-issue.trycloudflare.com",
+      "https://racial-soft-starring-outstanding.trycloudflare.com",
         "http://localhost:5173", // Vite default dev port
   "https://ethio-jobfinder.vercel.app",
   "http://localhost:3000", // keep for local frontend dev

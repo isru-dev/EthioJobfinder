@@ -15,7 +15,7 @@ import PreferencesModal from "./PreferencesModal";
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "";
 const buildApiUrl = (path) => `${API_BASE_URL}${path}`;
 
-export default function Navbar({ user, setUser }) {
+export default function Navbar({ user, setUser, dark }) {
   const [showPreferences, setShowPreferences] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
@@ -95,7 +95,13 @@ export default function Navbar({ user, setUser }) {
 
   return (
     <>
-      <header className="sticky top-0 z-40 border-b border-slate-200/80 bg-white/90 backdrop-blur-xl">
+      <header
+        className={`sticky top-0 z-40 border-b backdrop-blur-xl ${
+          dark
+            ? "border-slate-800 bg-slate-950/90"
+            : "border-slate-200/80 bg-white/90"
+        }`}
+      >
         <nav
           className="mx-auto flex max-w-7xl items-center justify-between px-4 py-3 sm:px-6 lg:px-8"
           aria-label="Main navigation"
@@ -111,10 +117,10 @@ export default function Navbar({ user, setUser }) {
             </span>
 
             <span className="min-w-0">
-              <span className="block truncate text-base font-bold tracking-tight text-slate-900 sm:text-lg">
+              <span className={`block truncate text-base font-bold tracking-tight sm:text-lg ${dark ? "text-slate-100" : "text-slate-900"}`}>
                 Ethio Job Explorer
               </span>
-              <span className="hidden text-xs font-medium text-slate-500 sm:block">
+              <span className={`hidden text-xs font-medium sm:block ${dark ? "text-slate-400" : "text-slate-500"}`}>
                 Discover your next opportunity
               </span>
             </span>
@@ -127,13 +133,17 @@ export default function Navbar({ user, setUser }) {
                 <button
                   type="button"
                   onClick={openPreferences}
-                  className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 transition hover:border-indigo-200 hover:bg-indigo-50 hover:text-indigo-700"
+                  className={`inline-flex items-center gap-2 rounded-xl border px-4 py-2.5 text-sm font-semibold transition ${
+                    dark
+                      ? "border-slate-700 bg-slate-900 text-slate-200 hover:border-indigo-800 hover:bg-indigo-950 hover:text-indigo-300"
+                      : "border-slate-200 bg-white text-slate-700 hover:border-indigo-200 hover:bg-indigo-50 hover:text-indigo-700"
+                  }`}
                 >
                   <Settings2 size={17} />
                   Preferences
                 </button>
 
-                <div className="flex items-center gap-2.5 rounded-xl bg-slate-50 px-3 py-2">
+                <div className={`flex items-center gap-2.5 rounded-xl px-3 py-2 ${dark ? "bg-slate-900" : "bg-slate-50"}`}>
                   {user.photo_url || user.photoUrl ? (
                     <img
                       src={user.photo_url || user.photoUrl}
@@ -147,13 +157,13 @@ export default function Navbar({ user, setUser }) {
                   )}
 
                   <div className="max-w-32">
-                    <p className="truncate text-sm font-semibold text-slate-800">
+                    <p className={`truncate text-sm font-semibold ${dark ? "text-slate-200" : "text-slate-800"}`}>
                       {user.first_name ||
                         user.firstName ||
                         user.username ||
                         "User"}
                     </p>
-                    <p className="text-xs text-slate-500">
+                    <p className={`text-xs ${dark ? "text-slate-400" : "text-slate-500"}`}>
                       Account
                     </p>
                   </div>
@@ -162,7 +172,11 @@ export default function Navbar({ user, setUser }) {
                 <button
                   type="button"
                   onClick={handleLogout}
-                  className="inline-flex items-center gap-2 rounded-xl px-3 py-2.5 text-sm font-medium text-slate-500 transition hover:bg-red-50 hover:text-red-600"
+                  className={`inline-flex items-center gap-2 rounded-xl px-3 py-2.5 text-sm font-medium transition ${
+                    dark
+                      ? "text-slate-400 hover:bg-red-950 hover:text-red-300"
+                      : "text-slate-500 hover:bg-red-50 hover:text-red-600"
+                  }`}
                 >
                   <LogOut size={17} />
                   <span>Log out</span>
@@ -180,7 +194,11 @@ export default function Navbar({ user, setUser }) {
           <button
             type="button"
             onClick={() => setMobileMenuOpen((open) => !open)}
-            className="flex h-10 w-10 items-center justify-center rounded-xl border border-slate-200 text-slate-700 transition hover:bg-slate-50 sm:hidden"
+            className={`flex h-10 w-10 items-center justify-center rounded-xl border transition sm:hidden ${
+              dark
+                ? "border-slate-700 text-slate-300 hover:bg-slate-900"
+                : "border-slate-200 text-slate-700 hover:bg-slate-50"
+            }`}
             aria-label={mobileMenuOpen ? "Close menu" : "Open menu"}
             aria-expanded={mobileMenuOpen}
           >
@@ -190,10 +208,12 @@ export default function Navbar({ user, setUser }) {
 
         {/* Mobile menu */}
         {mobileMenuOpen && (
-          <div className="border-t border-slate-100 bg-white px-4 py-4 sm:hidden">
+          <div className={`border-t px-4 py-4 sm:hidden ${
+            dark ? "border-slate-800 bg-slate-950" : "border-slate-100 bg-white"
+          }`}>
             {user ? (
               <div className="space-y-3">
-                <div className="flex items-center gap-3 rounded-xl bg-slate-50 p-3">
+                <div className={`flex items-center gap-3 rounded-xl p-3 ${dark ? "bg-slate-900" : "bg-slate-50"}`}>
                   {user.photo_url || user.photoUrl ? (
                     <img
                       src={user.photo_url || user.photoUrl}
@@ -207,13 +227,13 @@ export default function Navbar({ user, setUser }) {
                   )}
 
                   <div className="min-w-0">
-                    <p className="truncate text-sm font-semibold text-slate-900">
+                    <p className={`truncate text-sm font-semibold ${dark ? "text-slate-100" : "text-slate-900"}`}>
                       {user.first_name ||
                         user.firstName ||
                         user.username ||
                         "User"}
                     </p>
-                    <p className="text-xs text-slate-500">
+                    <p className={`text-xs ${dark ? "text-slate-400" : "text-slate-500"}`}>
                       Signed in
                     </p>
                   </div>
@@ -222,7 +242,11 @@ export default function Navbar({ user, setUser }) {
                 <button
                   type="button"
                   onClick={openPreferences}
-                  className="flex w-full items-center gap-3 rounded-xl px-3 py-3 text-sm font-medium text-slate-700 transition hover:bg-indigo-50 hover:text-indigo-700"
+                  className={`flex w-full items-center gap-3 rounded-xl px-3 py-3 text-sm font-medium transition ${
+                    dark
+                      ? "text-slate-300 hover:bg-indigo-950 hover:text-indigo-300"
+                      : "text-slate-700 hover:bg-indigo-50 hover:text-indigo-700"
+                  }`}
                 >
                   <Settings2 size={18} />
                   Alert preferences
@@ -231,7 +255,11 @@ export default function Navbar({ user, setUser }) {
                 <button
                   type="button"
                   onClick={handleLogout}
-                  className="flex w-full items-center gap-3 rounded-xl px-3 py-3 text-sm font-medium text-slate-600 transition hover:bg-red-50 hover:text-red-600"
+                  className={`flex w-full items-center gap-3 rounded-xl px-3 py-3 text-sm font-medium transition ${
+                    dark
+                      ? "text-slate-400 hover:bg-red-950 hover:text-red-300"
+                      : "text-slate-600 hover:bg-red-50 hover:text-red-600"
+                  }`}
                 >
                   <LogOut size={18} />
                   Log out
@@ -252,6 +280,7 @@ export default function Navbar({ user, setUser }) {
       {showPreferences && user && (
         <PreferencesModal
           user={user}
+          dark={dark}
           onClose={() => setShowPreferences(false)}
           onSave={handleSavePreferences}
         />

@@ -1,4 +1,4 @@
-import  { useState } from "react";
+import { useEffect, useState } from "react";
 import Navbar from "./Component/Navbar";
 import JobFeed from "./pages/JobFeed";
 
@@ -7,16 +7,23 @@ export default function App() {
     const saved = localStorage.getItem("ethio_job_user");
     return saved ? JSON.parse(saved) : null;
   });
+  const [dark, setDark] = useState(
+    () => localStorage.getItem("ethio_job_theme") !== "light"
+  );
+
+  useEffect(() => {
+    localStorage.setItem("ethio_job_theme", dark ? "dark" : "light");
+  }, [dark]);
 
   return (
-    <div className="min-h-screen bg-slate-50">
-      {/* 1. Only use Navbar here */}
-      <Navbar user={user} setUser={setUser} />
+    <div
+      className={`min-h-screen transition-colors duration-200 ${
+        dark ? "bg-slate-950 text-slate-100" : "bg-slate-50 text-slate-900"
+      }`}
+    >
+      <Navbar user={user} setUser={setUser} dark={dark} />
 
-      {/* 2. Main content */}
-      <main className="max-w-7xl mx-auto px-4">
-        <JobFeed user={user} />
-      </main>
+      <JobFeed dark={dark} setDark={setDark} />
     </div>
   );
 }
